@@ -32,6 +32,7 @@ let width, height = (640, 480)
 let red    = (255, 0, 0)
 let blue   = (0, 0, 255)
 let yellow = (255, 255, 0)
+let orange = (255, 127, 0)
 let black  = (0, 0, 0)
 let alpha  = 255
 
@@ -43,8 +44,8 @@ let fill_rect renderer color (x, y) =
 ;;
 
 
-let display renderer player bullets foes =
-  Render.set_draw_color renderer black alpha;
+let display renderer bg_color player bullets foes =
+  Render.set_draw_color renderer bg_color alpha;
   Render.clear renderer;
   List.iter (fun bullet -> fill_rect renderer yellow bullet.bullet_pos) bullets;
   List.iter (fun foe -> fill_rect renderer red foe.foe_pos) foes;
@@ -115,7 +116,7 @@ let step_bullets bullets t =
 let new_foe t =
   let foe_pos = (20 * Random.int (width / 20), -20) in
   let last_shot = Timer.get_ticks () in
-  let shoot_freq = 1200 + Random.int 1000 in
+  let shoot_freq = 1600 + Random.int 1800 in
   { foe_pos; last_shot; shoot_freq }
 
 
@@ -188,6 +189,13 @@ let step_player player req_dir =
   }
 
 
+let rec game_over renderer player bullets foes =
+  let _ = event_loop `none in
+  display renderer orange player bullets foes;
+  Timer.delay 200;
+  game_over renderer player bullets foes
+
+
 let () =
   Random.self_init ();
   Sdl.init [`VIDEO];
@@ -206,10 +214,10 @@ let () =
     let foes, bullets = step_foes foes bullets player t in
     let bullets = step_bullets bullets t in
     let player = step_player player req_dir in
-    display renderer player bullets foes;
+    display renderer black player bullets foes;
     Timer.delay 60;
     if player_touched player bullets
-    then begin Sdl.quit (); exit 0 end
+    then game_over renderer player bullets foes
     else main_loop player dir_player bullets foes
   in
   main_loop player dir_player bullets foes
