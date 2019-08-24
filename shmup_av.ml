@@ -435,6 +435,42 @@ let proc_events player = function
   | Event.KeyDown { Event.keycode = Keycode.Escape }
   | Event.Quit _ -> Sdl.quit (); exit 0
 
+  | Event.Joy_Button_Down { Event.jb_which = 0; Event.jb_button = 0 } ->
+      { player with p_shooting = true }
+  | Event.Joy_Button_Up { Event.jb_which = 0; Event.jb_button = 0 } ->
+      { player with p_shooting = false }
+  | Event.Joy_Axis_Motion e -> player
+  | Event.Joy_Hat_Motion e ->
+      begin match e.Event.jh_dir with
+      | Hat.Up ->
+          { player with p_dir =
+            { left = false; right = false; up = true; down = false } }
+      | Hat.Down ->
+          { player with p_dir =
+            { left = false; right = false; up = false; down = true } }
+      | Hat.Left ->
+          { player with p_dir =
+            { left = true; right = false; up = false; down = false } }
+      | Hat.Right ->
+          { player with p_dir =
+            { left = false; right = true; up = false; down = false } }
+      | Hat.Right_Up ->
+          { player with p_dir =
+            { left = false; right = true; up = true; down = false } }
+      | Hat.Right_Down ->
+          { player with p_dir =
+            { left = false; right = true; up = false; down = true } }
+      | Hat.Left_Up ->
+          { player with p_dir =
+            { left = true; right = false; up = true; down = false } }
+      | Hat.Left_Down ->
+          { player with p_dir =
+            { left = true; right = false; up = false; down = true } }
+      | Hat.Centered ->
+          { player with p_dir =
+            { left = false; right = false; up = false; down = false } }
+      end
+
   | _ -> player
 
 
@@ -715,11 +751,15 @@ let rec game_over renderer player f_bullets p_bullets foes
 
 let () =
   Random.self_init ();
-  Sdl.init [`VIDEO];
+  Sdl.init [`VIDEO; `JOYSTICK];
   let window, renderer =
     Render.create_window_and_renderer ~width ~height ~flags:[]
   in
   Render.set_logical_size2 renderer width height;
+
+  let joy_num = Joystick.num_joysticks () in
+  if joy_num >= 1
+  then ignore(Joystick.j_open 0);
 
   let player_texture = make_avatar renderer ~color:blue () in
   let player = {
