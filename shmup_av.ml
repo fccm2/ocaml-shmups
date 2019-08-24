@@ -23,12 +23,19 @@ type bullet = {
   bullet_birth: int;
 }
 
+type player_dir = {
+  left: bool;
+  right: bool;
+  up: bool;
+  down: bool;
+}
+
 type player = {
   p_pos: int * int;
   p_last_shot: int;
   p_shoot_freq: int;
   p_shooting: bool;
-  p_dir: [`none | `left | `right | `up | `down];
+  p_dir: player_dir;
 }
 
 let width, height = (640, 480)
@@ -59,16 +66,34 @@ let display renderer bg_color player f_bullets foes =
 
 
 let proc_events player = function
-  | Event.KeyDown { Event.keycode = Keycode.Left }  -> {player with p_dir = `left}
-  | Event.KeyDown { Event.keycode = Keycode.Right } -> {player with p_dir = `right}
-  | Event.KeyDown { Event.keycode = Keycode.Up }    -> {player with p_dir = `up}
-  | Event.KeyDown { Event.keycode = Keycode.Down }  -> {player with p_dir = `down}
-  | Event.KeyDown { Event.keycode = Keycode.Z } -> {player with p_shooting = true}
-  | Event.KeyUp { Event.keycode = Keycode.Z } -> {player with p_shooting = false}
+  | Event.KeyDown { Event.keycode = Keycode.Left } ->
+      { player with p_dir = { player.p_dir with left = true } }
+  | Event.KeyDown { Event.keycode = Keycode.Right } ->
+      { player with p_dir = { player.p_dir with right = true } }
+  | Event.KeyDown { Event.keycode = Keycode.Up } ->
+      { player with p_dir = { player.p_dir with up = true } }
+  | Event.KeyDown { Event.keycode = Keycode.Down } ->
+      { player with p_dir = { player.p_dir with down = true } }
+
+  | Event.KeyUp { Event.keycode = Keycode.Left } ->
+      { player with p_dir = { player.p_dir with left = false } }
+  | Event.KeyUp { Event.keycode = Keycode.Right } ->
+      { player with p_dir = { player.p_dir with right = false } }
+  | Event.KeyUp { Event.keycode = Keycode.Up } ->
+      { player with p_dir = { player.p_dir with up = false } }
+  | Event.KeyUp { Event.keycode = Keycode.Down } ->
+      { player with p_dir = { player.p_dir with down = false } }
+
+  | Event.KeyDown { Event.keycode = Keycode.Z } ->
+      { player with p_shooting = true }
+  | Event.KeyUp { Event.keycode = Keycode.Z } ->
+      { player with p_shooting = false }
+
   | Event.KeyDown { Event.keycode = Keycode.Q }
   | Event.KeyDown { Event.keycode = Keycode.Escape }
   | Event.Quit _ -> Sdl.quit (); exit 0
-  | _ -> {player with p_dir = `none}
+
+  | _ -> player
 
 
 let rec event_loop player =
@@ -187,11 +212,17 @@ let step_player player =
   let x, y = player.p_pos in
   { player with p_pos =
     match player.p_dir with
-    | `left  -> (x - 10, y)
-    | `right -> (x + 10, y)
-    | `up    -> (x, y - 10)
-    | `down  -> (x, y + 10)
-    | `none  -> (x, y)
+    | { left = true; right = false; up = false; down = false } -> (x - 10, y)
+    | { left = false; right = true; up = false; down = false } -> (x + 10, y)
+    | { left = false; right = false; up = true; down = false } -> (x, y - 10)
+    | { left = false; right = false; up = false; down = true } -> (x, y + 10)
+
+    | { left = true; right = false; up = true; down = false } -> (x - 7, y - 7)
+    | { left = true; right = false; up = false; down = true } -> (x - 7, y + 7)
+    | { left = false; right = true; up = true; down = false } -> (x + 7, y - 7)
+    | { left = false; right = true; up = false; down = true } -> (x + 7, y + 7)
+
+    | _ -> (x, y)
   }
 
 
@@ -214,7 +245,12 @@ let () =
     p_last_shot = 0;
     p_shoot_freq = 0;
     p_shooting = false;
-    p_dir = `none;
+    p_dir =
+      { left = false;
+        right = false;
+        up = false;
+        down = false;
+      };
   } in
   let foes = [] in
   let p_bullets = [] in
