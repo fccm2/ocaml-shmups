@@ -52,21 +52,333 @@ let alpha  = 255
 
 let score = ref 0
 
+let letters = [
+  '0', [|
+    [| 0; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 1; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 0; 1; 1; 1; 0 |];
+  |];
+  '1', [|
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 1; 1; 0; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 1; 1; 1; 0 |];
+  |];
+  '2', [|
+    [| 1; 1; 1; 0; 0 |];
+    [| 0; 0; 0; 1; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 1; 0; 0; 0 |];
+    [| 1; 1; 1; 1; 0 |];
+  |];
+  '3', [|
+    [| 1; 1; 1; 0; 0 |];
+    [| 0; 0; 0; 1; 0 |];
+    [| 0; 1; 1; 0; 0 |];
+    [| 0; 0; 0; 1; 0 |];
+    [| 1; 1; 1; 0; 0 |];
+  |];
+  '4', [|
+    [| 0; 0; 0; 1; 0 |];
+    [| 0; 0; 1; 1; 0 |];
+    [| 0; 1; 0; 1; 0 |];
+    [| 1; 1; 1; 1; 1 |];
+    [| 0; 0; 0; 1; 0 |];
+  |];
+  '5', [|
+    [| 1; 1; 1; 1; 1 |];
+    [| 1; 0; 0; 0; 0 |];
+    [| 1; 1; 1; 1; 0 |];
+    [| 0; 0; 0; 0; 1 |];
+    [| 1; 1; 1; 1; 0 |];
+  |];
+  '6', [|
+    [| 0; 0; 1; 1; 0 |];
+    [| 0; 1; 0; 0; 0 |];
+    [| 1; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 0; 1; 1; 1; 0 |];
+  |];
+  '7', [|
+    [| 1; 1; 1; 1; 1 |];
+    [| 0; 0; 0; 1; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 1; 0; 0; 0 |];
+    [| 1; 0; 0; 0; 0 |];
+  |];
+  '8', [|
+    [| 0; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 0; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 0; 1; 1; 1; 0 |];
+  |];
+  '9', [|
+    [| 0; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 0; 1; 1; 1; 1 |];
+    [| 0; 0; 0; 0; 1 |];
+    [| 0; 1; 1; 1; 0 |];
+  |];
+  ' ', [|
+    [| 0; 0; 0; 0; 0 |];
+    [| 0; 0; 0; 0; 0 |];
+    [| 0; 0; 0; 0; 0 |];
+    [| 0; 0; 0; 0; 0 |];
+    [| 0; 0; 0; 0; 0 |];
+  |];
+  ':', [|
+    [| 0; 0; 0; 0; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 0; 0; 0; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 0; 0; 0; 0 |];
+  |];
+  'a', [|
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 1; 0; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 1; 1; 1; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+  |];
+  'b', [|
+    [| 1; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 1; 1; 1; 0 |];
+  |];
+  'c', [|
+    [| 0; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 0; 1; 1; 1; 0 |];
+  |];
+  'd', [|
+    [| 1; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 1; 1; 1; 0 |];
+  |];
+  'e', [|
+    [| 1; 1; 1; 1; 1 |];
+    [| 1; 0; 0; 0; 0 |];
+    [| 1; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 0 |];
+    [| 1; 1; 1; 1; 1 |];
+  |];
+  'f', [|
+    [| 1; 1; 1; 1; 1 |];
+    [| 1; 0; 0; 0; 0 |];
+    [| 1; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 0 |];
+    [| 1; 0; 0; 0; 0 |];
+  |];
+  'g', [|
+    [| 0; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 0 |];
+    [| 1; 0; 0; 1; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 0; 1; 1; 1; 0 |];
+  |];
+  'h', [|
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 1; 1; 1; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+  |];
+  'i', [|
+    [| 0; 1; 1; 1; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 1; 1; 1; 0 |];
+  |];
+  'j', [|
+    [| 0; 0; 1; 1; 1 |];
+    [| 0; 0; 0; 1; 0 |];
+    [| 0; 0; 0; 1; 0 |];
+    [| 1; 0; 0; 1; 0 |];
+    [| 0; 1; 1; 0; 0 |];
+  |];
+  'k', [|
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 1; 0 |];
+    [| 1; 1; 1; 0; 0 |];
+    [| 1; 0; 0; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+  |];
+  'l', [|
+    [| 1; 0; 0; 0; 0 |];
+    [| 1; 0; 0; 0; 0 |];
+    [| 1; 0; 0; 0; 0 |];
+    [| 1; 0; 0; 0; 0 |];
+    [| 1; 1; 1; 1; 0 |];
+  |];
+  'm', [|
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 1; 0; 1; 1 |];
+    [| 1; 0; 1; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+  |];
+  'n', [|
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 1; 0; 0; 1 |];
+    [| 1; 0; 1; 0; 1 |];
+    [| 1; 0; 0; 1; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+  |];
+  'o', [|
+    [| 0; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 0; 1; 1; 1; 0 |];
+  |];
+  'p', [|
+    [| 1; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 0 |];
+    [| 1; 0; 0; 0; 0 |];
+  |];
+  'q', [|
+    [| 0; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 1; 0 |];
+    [| 0; 1; 1; 0; 1 |];
+  |];
+  'r', [|
+    [| 1; 1; 1; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 1; 1; 1; 0 |];
+    [| 1; 0; 1; 0; 0 |];
+    [| 1; 0; 0; 1; 0 |];
+  |];
+  's', [|
+    [| 0; 1; 1; 1; 1 |];
+    [| 1; 0; 0; 0; 0 |];
+    [| 0; 1; 1; 1; 0 |];
+    [| 0; 0; 0; 0; 1 |];
+    [| 1; 1; 1; 1; 0 |];
+  |];
+  't', [|
+    [| 1; 1; 1; 1; 1 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+  |];
+  'u', [|
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 0; 1; 1; 1; 0 |];
+  |];
+  'v', [|
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 0; 1; 0; 1; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+  |];
+  'w', [|
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 0; 0; 1 |];
+    [| 1; 0; 1; 0; 1 |];
+    [| 1; 0; 1; 0; 1 |];
+    [| 0; 1; 0; 1; 0 |];
+  |];
+  'x', [|
+    [| 1; 0; 0; 0; 1 |];
+    [| 0; 1; 0; 1; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 1; 0; 1; 0 |];
+    [| 1; 0; 0; 0; 1 |];
+  |];
+  'y', [|
+    [| 1; 0; 0; 0; 1 |];
+    [| 0; 1; 0; 1; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+  |];
+  'z', [|
+    [| 1; 1; 1; 1; 1 |];
+    [| 0; 0; 0; 1; 0 |];
+    [| 0; 0; 1; 0; 0 |];
+    [| 0; 1; 0; 0; 0 |];
+    [| 1; 1; 1; 1; 1 |];
+  |];
+]
+
 let src_rect = Rect.make4 0 0 5 5
 
 
-let fill_rect renderer color (x, y) =
-  let rect = Rect.make4 x y 20 20 in
+let fill_rect40 renderer color x y =
+  let rect = Rect.make4 x y 40 40 in
   Render.set_draw_color renderer color alpha;
   Render.fill_rect renderer rect;
 ;;
 
 
-let display  renderer bg_color player f_bullets p_bullets foes
-      f_bullet_tex p_bullet_tex =
+let make_background () =
+  Array.init 12 (fun y ->
+    Array.init 16 (fun x ->
+      let v = 90 + Random.int 20 in
+      (v, v, v)))
 
-  Render.set_draw_color renderer bg_color alpha;
-  Render.clear renderer;
+
+let background = make_background ()
+
+
+let display_background renderer playing =
+  for y = 0 to pred 12 do
+    for x = 0 to pred 16 do
+      let _x = x * 40
+      and _y = y * 40 in
+      let rgb = background.(y).(x) in
+      if playing
+      then fill_rect40 renderer rgb _x _y
+      else
+        let r, g, b = rgb in
+        fill_rect40 renderer (r + 40, g / 2, b / 3) _x _y
+    done
+  done
+
+
+let display  renderer playing player f_bullets p_bullets foes
+      f_bullet_tex p_bullet_tex letters_tex =
+
+  display_background renderer playing;
+
+  let draw_letter texture x y =
+    let dst_rect = Rect.make4 x y 15 15 in
+    Render.copy renderer ~texture ~src_rect ~dst_rect ();
+  in
+  (*
+  List.iteri (fun i (c, tex) ->
+    let x = (i mod 20) * 19 + 10 in
+    let y = (i / 20) * 19 + 10 in
+    draw_letter tex x y;
+  ) letters_tex;
+  *)
+  let s = Printf.sprintf "score: %d" !score in
+  String.iteri (fun i c ->
+    let tex = List.assoc c letters_tex in
+    let x = i * 20 + 10 in
+    let y = 10 in
+    draw_letter tex x y;
+  ) s;
 
   List.iter (fun bullet ->
     let x, y = bullet.bullet_pos in
@@ -313,7 +625,8 @@ let player_touched player f_bullets =
   let player_rect = Rect.make4 x y 20 20 in
   List.exists (fun bullet ->
     let x, y = bullet.bullet_pos in
-    let bullet_rect = Rect.make4 x y 20 20 in
+    let x, y = x + 4, y + 4 in
+    let bullet_rect = Rect.make4 x y 12 12 in
     Rect.has_intersection player_rect bullet_rect
   ) f_bullets
 
@@ -360,13 +673,13 @@ let step_player  player p_bullets t =
 
 
 let rec game_over renderer player f_bullets p_bullets foes
-      f_bullet_tex p_bullet_tex =
+      f_bullet_tex p_bullet_tex letters_tex =
   let _ = event_loop player in
-  display  renderer orange player f_bullets p_bullets foes
-      f_bullet_tex p_bullet_tex;
+  display  renderer false player f_bullets p_bullets foes
+      f_bullet_tex p_bullet_tex letters_tex;
   Timer.delay 200;
   game_over renderer player f_bullets p_bullets foes
-      f_bullet_tex p_bullet_tex
+      f_bullet_tex p_bullet_tex letters_tex
 
 
 let () =
@@ -393,14 +706,14 @@ let () =
   let p_bullets = [] in
   let f_bullets = [] in
 
-  let f_pattern = [|
+  let fb_pattern = [|
     [| 0; 0; 0; 0; 0 |];
     [| 0; 1; 0; 1; 0 |];
     [| 0; 0; 0; 0; 0 |];
     [| 0; 1; 0; 1; 0 |];
     [| 0; 0; 0; 0; 0 |];
   |] in
-  let p_pattern = [|
+  let pb_pattern = [|
     [| 1; 0; 0; 0; 1 |];
     [| 1; 0; 0; 0; 1 |];
     [| 0; 0; 0; 0; 0 |];
@@ -408,8 +721,15 @@ let () =
     [| 1; 0; 0; 0; 1 |];
   |] in
 
-  let f_bullet_tex = make_bullet_tex renderer f_pattern ~color:yellow in
-  let p_bullet_tex = make_bullet_tex renderer p_pattern ~color:green in
+  let f_bullet_tex = make_bullet_tex renderer fb_pattern ~color:yellow in
+  let p_bullet_tex = make_bullet_tex renderer pb_pattern ~color:green in
+
+  let letters_tex =
+    List.map (fun (c, pat) ->
+      let tex = make_bullet_tex renderer pat ~color:green in
+      (c, tex)
+    ) letters
+  in
 
   let rec main_loop ~player ~f_bullets ~p_bullets ~foes =
     let player = event_loop player in
@@ -420,16 +740,16 @@ let () =
     let p_bullets = step_player_bullets  p_bullets in
     let player, p_bullets = step_player  player p_bullets t in
 
-    display  renderer grey player f_bullets p_bullets foes
-      f_bullet_tex p_bullet_tex;
+    display  renderer true player f_bullets p_bullets foes
+      f_bullet_tex p_bullet_tex letters_tex;
 
-    Timer.delay 60;
+    Timer.delay 50;
 
     if player_touched  player f_bullets
     then begin
       Printf.printf "# score: %d\n%!" !score;
       game_over renderer player f_bullets p_bullets foes
-          f_bullet_tex p_bullet_tex
+          f_bullet_tex p_bullet_tex letters_tex
     end
     else main_loop ~player ~f_bullets ~p_bullets ~foes
   in
