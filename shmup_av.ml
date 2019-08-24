@@ -47,12 +47,9 @@ type player = {
 
 let width, height = (640, 480)
 
-let red    = (255, 0, 0)
 let blue   = (0, 0, 255)
 let green  = (0, 255, 0)
 let yellow = (255, 255, 0)
-let orange = (255, 127, 0)
-let grey   = (100, 100, 100)
 let alpha  = 255
 
 let score = ref 0
@@ -357,7 +354,6 @@ let display_background renderer playing =
         fill_rect40 renderer (r + 40, g / 2, b / 3) _x _y
     done
   done
-
 
 
 let src_rect = Rect.make4 0 0 5 5
@@ -665,7 +661,7 @@ let player_touched player f_bullets =
 
 let player_moving player =
   let x, y = player.p_pos in
-  { player with p_pos =
+  let _x, _y =
     match player.p_dir with
     | { left = true; right = false; up = false; down = false } -> (x - 10, y)
     | { left = false; right = true; up = false; down = false } -> (x + 10, y)
@@ -678,7 +674,10 @@ let player_moving player =
     | { left = false; right = true; up = false; down = true } -> (x + 7, y + 7)
 
     | _ -> (x, y)
-  }
+  in
+  let x = min (max _x 0) (width - 20)
+  and y = min (max _y 0) (height - 20) in
+  { player with p_pos = (x, y) }
 
 
 let step_player_bullets p_bullets =
@@ -720,6 +719,8 @@ let () =
   let window, renderer =
     Render.create_window_and_renderer ~width ~height ~flags:[]
   in
+  Render.set_logical_size2 renderer width height;
+
   let player_texture = make_avatar renderer ~color:blue () in
   let player = {
     p_pos = (width / 2, height - 60);
@@ -775,7 +776,10 @@ let () =
     display  renderer true player f_bullets p_bullets foes
       f_bullet_tex p_bullet_tex letters_tex;
 
-    Timer.delay 50;
+    let t2 = Timer.get_ticks () in
+    let dt = t2 - t in
+
+    Timer.delay (max 0 (50 - dt));
 
     if player_touched  player f_bullets
     then begin
