@@ -11,6 +11,11 @@
 *)
 open Sdl
 
+type foe = {
+  foe_pos: int * int;
+  last_shot: int;
+}
+
 let width, height = (640, 480)
 
 let red    = (255, 0, 0)
@@ -31,7 +36,7 @@ let display renderer player bullets foes =
   Render.set_draw_color renderer black alpha;
   Render.clear renderer;
   List.iter (fill_rect renderer yellow) bullets;
-  List.iter (fun (pos, _) -> fill_rect renderer red pos) foes;
+  List.iter (fun foe -> fill_rect renderer red foe.foe_pos) foes;
   fill_rect renderer blue player;
   Render.render_present renderer;
 ;;
@@ -71,7 +76,7 @@ let step_bullets bullets =
 
 
 let rec new_foe_pos () =
-  (20 * Random.int 32, -20)
+  (20 * Random.int (width / 20), -20)
 
 
 let new_foes_opt foes =
@@ -80,7 +85,7 @@ let new_foes_opt foes =
   else
     let foe_pos = new_foe_pos () in
     let last_shot = Timer.get_ticks () in
-    (foe_pos, last_shot) :: foes
+    {foe_pos; last_shot} :: foes
 
 
 let gun_new_bullets bullets foes =
@@ -89,10 +94,11 @@ let gun_new_bullets bullets foes =
     match foes with
     | [] -> (acc1, acc2)
     | foe :: foes ->
-        let pos, last_shot = foe in
-        if t - last_shot < 1200
+        if t - foe.last_shot < 1200
         then aux acc1 (foe :: acc2) foes
-        else aux (pos :: acc1) ((pos, t) :: acc2) foes
+        else
+          let updated_foe = {foe_pos = foe.foe_pos; last_shot = t} in
+          aux (foe.foe_pos :: acc1) (updated_foe :: acc2) foes
   in
   let new_bullets, foes = aux [] [] foes in
   let bullets = List.rev_append new_bullets bullets in
@@ -100,14 +106,15 @@ let gun_new_bullets bullets foes =
 
 
 let foe_inside foe =
-  let (x, y), last_shot = foe in
+  let (x, y) = foe.foe_pos in
   (y < height)
 
 
 let step_foes foes bullets =
   let step_foe foe =
-    let (x, y), last_shot = foe in
-    (x, y + 2), last_shot
+    let (x, y) = foe.foe_pos in
+    let new_pos = (x, y + 2) in
+    { foe with foe_pos = new_pos }
   in
   let foes = new_foes_opt foes in
   let bullets, foes = gun_new_bullets bullets foes in
