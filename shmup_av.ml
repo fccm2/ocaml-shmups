@@ -13,8 +13,8 @@ open Sdl
 
 type foe = {
   foe_pos: int * int;
-  last_shot: int;
-  shoot_freq: int;
+  foe_last_shot: int;
+  foe_shoot_freq: int;
 }
 
 type bullet = {
@@ -24,7 +24,11 @@ type bullet = {
 }
 
 type player = {
-  player_pos: int * int;
+  p_pos: int * int;
+  p_last_shot: int;
+  p_shoot_freq: int;
+  p_shooting: bool;
+  p_dir: [`none | `left | `right | `up | `down];
 }
 
 let width, height = (640, 480)
@@ -44,36 +48,38 @@ let fill_rect renderer color (x, y) =
 ;;
 
 
-let display renderer bg_color player bullets foes =
+let display renderer bg_color player f_bullets foes =
   Render.set_draw_color renderer bg_color alpha;
   Render.clear renderer;
-  List.iter (fun bullet -> fill_rect renderer yellow bullet.bullet_pos) bullets;
+  List.iter (fun bullet -> fill_rect renderer yellow bullet.bullet_pos) f_bullets;
   List.iter (fun foe -> fill_rect renderer red foe.foe_pos) foes;
-  fill_rect renderer blue player.player_pos;
+  fill_rect renderer blue player.p_pos;
   Render.render_present renderer;
 ;;
 
 
-let proc_events = function
-  | Event.KeyDown { Event.keycode = Keycode.Left } -> `left
-  | Event.KeyDown { Event.keycode = Keycode.Right } -> `right
-  | Event.KeyDown { Event.keycode = Keycode.Up } -> `up
-  | Event.KeyDown { Event.keycode = Keycode.Down } -> `down
+let proc_events player = function
+  | Event.KeyDown { Event.keycode = Keycode.Left }  -> {player with p_dir = `left}
+  | Event.KeyDown { Event.keycode = Keycode.Right } -> {player with p_dir = `right}
+  | Event.KeyDown { Event.keycode = Keycode.Up }    -> {player with p_dir = `up}
+  | Event.KeyDown { Event.keycode = Keycode.Down }  -> {player with p_dir = `down}
+  | Event.KeyDown { Event.keycode = Keycode.Z } -> {player with p_shooting = true}
+  | Event.KeyUp { Event.keycode = Keycode.Z } -> {player with p_shooting = false}
   | Event.KeyDown { Event.keycode = Keycode.Q }
   | Event.KeyDown { Event.keycode = Keycode.Escape }
   | Event.Quit _ -> Sdl.quit (); exit 0
-  | _ -> `none
+  | _ -> {player with p_dir = `none}
 
 
-let rec event_loop dir_player =
+let rec event_loop player =
   match Event.poll_event () with
-  | None -> (dir_player)
+  | None -> player
   | Some ev ->
-      let dir = proc_events ev in
-      event_loop dir
+      let player = proc_events player ev in
+      event_loop player
 
 
-let bullet_inside bullet =
+let f_bullet_inside bullet =
   let x, y = bullet.bullet_pos in
   (y < height) &&
   (x < width) &&
@@ -102,22 +108,22 @@ let point_on_line (p1, p2) i t =
     ) i
 
 
-let step_bullets bullets t =
+let step_foes_bullets f_bullets t =
   let step_bullet bullet =
     let dt = t - bullet.bullet_birth in
     let p = point_on_line bullet.bullet_line 6000 dt in
     { bullet with bullet_pos = p }
   in
-  let bullets = List.map step_bullet bullets in
-  let bullets = List.filter bullet_inside bullets in
-  (bullets)
+  let f_bullets = List.map step_bullet f_bullets in
+  let f_bullets = List.filter f_bullet_inside f_bullets in
+  (f_bullets)
 
 
 let new_foe t =
   let foe_pos = (20 * Random.int (width / 20), -20) in
-  let last_shot = Timer.get_ticks () in
-  let shoot_freq = 1600 + Random.int 1800 in
-  { foe_pos; last_shot; shoot_freq }
+  let foe_last_shot = t in
+  let foe_shoot_freq = 1600 + Random.int 1800 in
+  { foe_pos; foe_last_shot; foe_shoot_freq }
 
 
 let new_foes_opt foes t =
@@ -128,25 +134,25 @@ let new_foes_opt foes t =
     new_foe :: foes
 
 
-let gun_new_bullets bullets foes player t =
+let gun_new_f_bullets f_bullets foes player t =
   let rec aux acc1 acc2 foes =
     match foes with
     | [] -> (acc1, acc2)
     | foe :: foes ->
-        if t - foe.last_shot < foe.shoot_freq
+        if t - foe.foe_last_shot < foe.foe_shoot_freq
         then aux acc1 (foe :: acc2) foes
         else
-          let updated_foe = { foe with last_shot = t } in
+          let updated_foe = { foe with foe_last_shot = t } in
           let bullet =
             { bullet_pos = foe.foe_pos;
-              bullet_line = (foe.foe_pos, player.player_pos);
+              bullet_line = (foe.foe_pos, player.p_pos);
               bullet_birth = t; }
           in
           aux (bullet :: acc1) (updated_foe :: acc2) foes
   in
-  let new_bullets, foes = aux [] [] foes in
-  let bullets = List.rev_append new_bullets bullets in
-  (bullets, foes)
+  let new_f_bullets, foes = aux [] [] foes in
+  let f_bullets = List.rev_append new_f_bullets f_bullets in
+  (f_bullets, foes)
 
 
 let foe_inside foe =
@@ -154,33 +160,33 @@ let foe_inside foe =
   (y < height)
 
 
-let step_foes foes bullets player t =
+let step_foes foes f_bullets player t =
   let step_foe foe =
     let (x, y) = foe.foe_pos in
     let new_pos = (x, y + 2) in
     { foe with foe_pos = new_pos }
   in
   let foes = new_foes_opt foes t in
-  let bullets, foes = gun_new_bullets bullets foes player t in
+  let f_bullets, foes = gun_new_f_bullets f_bullets foes player t in
   let foes = List.map step_foe foes in
   let foes = List.filter foe_inside foes in
-  (foes, bullets)
+  (foes, f_bullets)
 
 
-let player_touched player bullets =
-  let x, y = player.player_pos in
+let player_touched player f_bullets =
+  let x, y = player.p_pos in
   let player_rect = Rect.make4 x y 20 20 in
   List.exists (fun bullet ->
     let x, y = bullet.bullet_pos in
     let bullet_rect = Rect.make4 x y 20 20 in
     Rect.has_intersection player_rect bullet_rect
-  ) bullets
+  ) f_bullets
 
 
-let step_player player req_dir =
-  let x, y = player.player_pos in
-  { player_pos =
-    match req_dir with
+let step_player player =
+  let x, y = player.p_pos in
+  { player with p_pos =
+    match player.p_dir with
     | `left  -> (x - 10, y)
     | `right -> (x + 10, y)
     | `up    -> (x, y - 10)
@@ -189,11 +195,11 @@ let step_player player req_dir =
   }
 
 
-let rec game_over renderer player bullets foes =
-  let _ = event_loop `none in
-  display renderer orange player bullets foes;
+let rec game_over renderer player f_bullets p_bullets foes =
+  let _ = event_loop player in
+  display renderer orange player f_bullets foes;
   Timer.delay 200;
-  game_over renderer player bullets foes
+  game_over renderer player f_bullets p_bullets foes
 
 
 let () =
@@ -201,23 +207,29 @@ let () =
   Sdl.init [`VIDEO];
   let window, renderer =
     Render.create_window_and_renderer
-      ~width ~height ~flags:[]
+        ~width ~height ~flags:[]
   in
-  let player = { player_pos = (width / 2, height - 60) } in
-  let dir_player = `none in
-  let bullets = [] in
+  let player = {
+    p_pos = (width / 2, height - 60);
+    p_last_shot = 0;
+    p_shoot_freq = 0;
+    p_shooting = false;
+    p_dir = `none;
+  } in
   let foes = [] in
+  let p_bullets = [] in
+  let f_bullets = [] in
 
-  let rec main_loop player dir_player bullets foes =
-    let req_dir = event_loop dir_player in
+  let rec main_loop player f_bullets p_bullets foes =
+    let player = event_loop player in
     let t = Timer.get_ticks () in
-    let foes, bullets = step_foes foes bullets player t in
-    let bullets = step_bullets bullets t in
-    let player = step_player player req_dir in
-    display renderer black player bullets foes;
+    let foes, f_bullets = step_foes foes f_bullets player t in
+    let f_bullets = step_foes_bullets f_bullets t in
+    let player = step_player player in
+    display renderer black player f_bullets foes;
     Timer.delay 60;
-    if player_touched player bullets
-    then game_over renderer player bullets foes
-    else main_loop player dir_player bullets foes
+    if player_touched player f_bullets
+    then game_over renderer player f_bullets p_bullets foes
+    else main_loop player f_bullets p_bullets foes
   in
-  main_loop player dir_player bullets foes
+  main_loop player f_bullets p_bullets foes
