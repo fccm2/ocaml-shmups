@@ -52,7 +52,8 @@ let green  = (0, 255, 0)
 let yellow = (255, 255, 0)
 let alpha  = 255
 
-let score = ref 0
+let shot = ref 0
+let missed = ref 0
 
 let letters = [
   '0', [|
@@ -137,6 +138,13 @@ let letters = [
     [| 0; 0; 1; 0; 0 |];
     [| 0; 0; 0; 0; 0 |];
     [| 0; 0; 1; 0; 0 |];
+    [| 0; 0; 0; 0; 0 |];
+  |];
+  '-', [|
+    [| 0; 0; 0; 0; 0 |];
+    [| 0; 0; 0; 0; 0 |];
+    [| 0; 1; 1; 1; 0 |];
+    [| 0; 0; 0; 0; 0 |];
     [| 0; 0; 0; 0; 0 |];
   |];
   'a', [|
@@ -364,16 +372,30 @@ let display  renderer playing player f_bullets p_bullets foes
 
   display_background renderer playing;
 
-  let draw_letter texture x y =
-    let dst_rect = Rect.make4 x y 15 15 in
+  let draw_letter texture x y size =
+    let dst_rect = Rect.make4 x y size size in
     Render.copy renderer ~texture ~src_rect ~dst_rect ();
   in
-  let s = Printf.sprintf "score: %d" !score in
+  let s = Printf.sprintf "shot: %d" !shot in
   String.iteri (fun i c ->
     let tex = List.assoc c letters_tex in
     let x = i * 20 + 10 in
     let y = 10 in
-    draw_letter tex x y;
+    draw_letter tex x y 15;
+  ) s;
+  let s = Printf.sprintf "missed: %d" !missed in
+  String.iteri (fun i c ->
+    let tex = List.assoc c letters_tex in
+    let x = i * 20 + width - 220 in
+    let y = 10 in
+    draw_letter tex x y 10;
+  ) s;
+  let s = Printf.sprintf "score: %d" (!shot - !missed) in
+  String.iteri (fun i c ->
+    let tex = List.assoc c letters_tex in
+    let x = i * 20 + 10 in
+    let y = height - 25 in
+    draw_letter tex x y 10;
   ) s;
 
   List.iter (fun bullet ->
@@ -673,11 +695,17 @@ let step_foes  renderer foes player f_bullets p_bullets t =
   let foes = new_foes_opt foes renderer t in
   let f_bullets, foes = gun_new_f_bullets f_bullets foes player t in
   let foes = List.map step_foe foes in
-  let foes = List.filter (foe_inside t) foes in
+  let foes =
+    List.filter (fun foe ->
+      if foe_inside t foe
+      then true
+      else (incr missed; false)
+    ) foes
+  in
   let foes =
     List.filter (fun foe ->
       if foe_touched p_bullets foe
-      then (incr score; Texture.destroy foe.foe_texture; false)
+      then (incr shot; Texture.destroy foe.foe_texture; false)
       else true
     ) foes
   in
@@ -823,7 +851,9 @@ let () =
 
     if player_touched  player f_bullets
     then begin
-      Printf.printf "# score: %d\n%!" !score;
+      Printf.printf "# shot: %d\n" !shot;
+      Printf.printf "# missed: %d\n" !missed;
+      Printf.printf "# score: %d\n%!" (!shot - !missed);
       game_over renderer player f_bullets p_bullets foes
           f_bullet_tex p_bullet_tex letters_tex
     end
