@@ -1,4 +1,4 @@
-(* A Minimalist Shmup Game
+(* A Simple Abstract Shmup Game
  Copyright (C) 2019 Florent Monnier
  
  This software is provided "AS-IS", without any express or implied warranty.
@@ -10,9 +10,14 @@
  redistribute it freely.
 *)
 open Sdl
+open IntAGeom
 
-type foe = {
+module QBCurve = Curves2d.Bezier.Quadratic
+module Timeline = IpTimed
+
+type 'a foe = {
   foe_pos: int * int;
+  foe_anim: 'a;
   foe_last_shot: int;
   foe_shoot_freq: int;
   foe_texture: Texture.t;
@@ -321,8 +326,6 @@ let letters = [
   |];
 ]
 
-let src_rect = Rect.make4 0 0 5 5
-
 
 let fill_rect40 renderer color x y =
   let rect = Rect.make4 x y 40 40 in
@@ -356,6 +359,10 @@ let display_background renderer playing =
   done
 
 
+
+let src_rect = Rect.make4 0 0 5 5
+
+
 let display  renderer playing player f_bullets p_bullets foes
       f_bullet_tex p_bullet_tex letters_tex =
 
@@ -365,13 +372,6 @@ let display  renderer playing player f_bullets p_bullets foes
     let dst_rect = Rect.make4 x y 15 15 in
     Render.copy renderer ~texture ~src_rect ~dst_rect ();
   in
-  (*
-  List.iteri (fun i (c, tex) ->
-    let x = (i mod 20) * 19 + 10 in
-    let y = (i / 20) * 19 + 10 in
-    draw_letter tex x y;
-  ) letters_tex;
-  *)
   let s = Printf.sprintf "score: %d" !score in
   String.iteri (fun i c ->
     let tex = List.assoc c letters_tex in
@@ -548,12 +548,46 @@ let step_foes_bullets f_bullets t =
   (f_bullets)
 
 
+let inter1 t t1 t2 v1 v2 =
+  ((v2 - v1) * (t - t1)) / (t2 - t1) + v1
+
+let min_t, max_t = QBCurve.interval
+
+let fe t1 t2 t ps =
+  let t = inter1 t t1 t2 min_t max_t in
+  QBCurve.pnt ps t
+
+
+let make_foe_anim t =
+  let t1 = t
+  and t2 = t + 6000 + Random.int 4000 in
+  let p1, p2, p3 =
+    match Random.int 5 with
+    | 0 ->  (* left to right *)
+        (-20, Random.int height),
+        (Random.int width, Random.int height),
+        (width, Random.int height)
+    | 1 ->  (* right to left *)
+        (width, Random.int height),
+        (Random.int width, Random.int height),
+        (-20, Random.int height)
+    | 2 | 3 | 4 ->  (* top to bottom *)
+        (Random.int (width - 20), -20),
+        (Random.int width, Random.int height),
+        (Random.int (width - 20), height)
+    | _ -> assert false
+  in
+  let ps = (p1, p2, p3) in
+  [ `Evol (t1, t2, fe, ps) ]
+
+
 let new_foe renderer t =
   let foe_texture = make_avatar renderer () in
-  let foe_pos = (20 * Random.int (width / 20), -20) in
+  let foe_pos = (Random.int (width - 20), -20) in
+  let foe_anim = make_foe_anim t in
   let foe_last_shot = t in
   let foe_shoot_freq = 1600 + Random.int 1800 in
-  { foe_texture; foe_pos; foe_last_shot; foe_shoot_freq }
+  { foe_texture; foe_pos; foe_anim; foe_last_shot; foe_shoot_freq }
 
 
 let new_foes_opt foes renderer t =
@@ -586,9 +620,8 @@ let gun_new_f_bullets f_bullets foes player t =
   (f_bullets, foes)
 
 
-let foe_inside foe =
-  let (x, y) = foe.foe_pos in
-  (y < height)
+let foe_inside t foe =
+  not (Timeline.finished t foe.foe_anim)
 
 
 let foe_touched p_bullets foe =
@@ -602,14 +635,13 @@ let foe_touched p_bullets foe =
 
 let step_foes  renderer foes player f_bullets p_bullets t =
   let step_foe foe =
-    let (x, y) = foe.foe_pos in
-    let new_pos = (x, y + 2) in
+    let new_pos = Timeline.val_at t foe.foe_anim in
     { foe with foe_pos = new_pos }
   in
   let foes = new_foes_opt foes renderer t in
   let f_bullets, foes = gun_new_f_bullets f_bullets foes player t in
   let foes = List.map step_foe foes in
-  let foes = List.filter foe_inside foes in
+  let foes = List.filter (foe_inside t) foes in
   let foes =
     List.filter (fun foe ->
       if foe_touched p_bullets foe
@@ -692,7 +724,7 @@ let () =
   let player = {
     p_pos = (width / 2, height - 60);
     p_last_shot = Timer.get_ticks ();
-    p_shoot_freq = 400;
+    p_shoot_freq = 300;
     p_shooting = false;
     p_dir =
       { left = false;
