@@ -12,9 +12,11 @@
 open Sdl
 
 type foe = {
+  foe_texture: Texture.t;
   foe_pos: int * int;
   foe_last_shot: int;
   foe_shoot_freq: int;
+  foe_gc: string;
 }
 
 type foe_bullet = {
@@ -45,7 +47,7 @@ let blue   = (0, 0, 255)
 let green  = (0, 255, 0)
 let yellow = (255, 255, 0)
 let orange = (255, 127, 0)
-let black  = (0, 0, 0)
+let grey   = (100, 100, 100)
 let alpha  = 255
 
 
@@ -56,11 +58,16 @@ let fill_rect renderer color (x, y) =
 ;;
 
 
-let display  renderer bg_color player f_bullets p_bullets foes =
+let display  renderer bg_color foes player f_bullets p_bullets =
   Render.set_draw_color renderer bg_color alpha;
   Render.clear renderer;
   List.iter (fun bullet -> fill_rect renderer yellow bullet.bullet_pos) f_bullets;
-  List.iter (fun foe -> fill_rect renderer red foe.foe_pos) foes;
+  List.iter (fun foe ->
+    let x, y = foe.foe_pos in
+    let src_rect = Rect.make4 0 0 5 5 in
+    let dst_rect = Rect.make4 x y 20 20 in
+    Render.copy renderer ~texture:foe.foe_texture ~src_rect ~dst_rect ();
+  ) foes;
   List.iter (fun pos -> fill_rect renderer green pos) p_bullets;
   fill_rect renderer blue player.p_pos;
   Render.render_present renderer;
@@ -91,6 +98,9 @@ let proc_events player = function
   | Event.KeyUp { Event.keycode = Keycode.Z } ->
       { player with p_shooting = false }
 
+  | Event.KeyDown { Event.keycode = Keycode.F } ->
+      Gc.full_major (); player
+
   | Event.KeyDown { Event.keycode = Keycode.Q }
   | Event.KeyDown { Event.keycode = Keycode.Escape }
   | Event.Quit _ -> Sdl.quit (); exit 0
@@ -104,6 +114,43 @@ let rec event_loop player =
   | Some ev ->
       let player = proc_events player ev in
       event_loop player
+
+
+let pixel_for_surface ~surface ~rgb =
+  let fmt = Surface.get_pixelformat_t surface in
+  let pixel_format = Pixel.alloc_format fmt in
+  let pixel = Pixel.map_RGB pixel_format rgb in
+  Pixel.free_format pixel_format;
+  (pixel)
+
+
+let make_avatar renderer =
+  let surface = Surface.create_rgb ~width:5 ~height:5 ~depth:32 in
+  let rgb = (255, 255, 255) in
+  let key = pixel_for_surface ~surface ~rgb in
+  Surface.set_color_key surface ~enable:true ~key;
+  let rgb =
+    (155 + Random.int 100,
+     155 + Random.int 100,
+     155 + Random.int 100)
+  in
+  let color = pixel_for_surface ~surface ~rgb in
+  for x1 = 0 to pred 3 do
+    for y = 0 to pred 5 do
+      let x2 = (pred 5) - x1 in
+      if Random.bool ()
+      then begin
+        Surface.fill_rect surface (Rect.make4 x1 y 1 1) color;
+        Surface.fill_rect surface (Rect.make4 x2 y 1 1) color;
+      end else begin
+        Surface.fill_rect surface (Rect.make4 x1 y 1 1) 0xFFFFFFl;
+        Surface.fill_rect surface (Rect.make4 x2 y 1 1) 0xFFFFFFl;
+      end
+    done
+  done;
+  let texture = Texture.create_from_surface renderer surface in
+  Surface.free surface;
+  (texture)
 
 
 let f_bullet_inside bullet =
@@ -146,18 +193,24 @@ let step_foes_bullets f_bullets t =
   (f_bullets)
 
 
-let new_foe t =
+let new_foe renderer t =
+  let foe_texture = make_avatar renderer in
   let foe_pos = (20 * Random.int (width / 20), -20) in
   let foe_last_shot = t in
   let foe_shoot_freq = 1600 + Random.int 1800 in
-  { foe_pos; foe_last_shot; foe_shoot_freq }
+  let foe_gc = String.make 1 ' ' in
+  let foe = { foe_texture; foe_pos; foe_last_shot; foe_shoot_freq; foe_gc } in
+  Gc.finalise (fun foe ->
+    Printf.printf "# finalising texture\n%!";
+    Texture.destroy foe.foe_texture) foe;
+  (foe)
 
 
-let new_foes_opt foes t =
+let new_foes_opt foes renderer t =
   if Random.int 100 > 2
   then foes
   else
-    let new_foe = new_foe t in
+    let new_foe = new_foe renderer t in
     new_foe :: foes
 
 
@@ -179,6 +232,7 @@ let gun_new_f_bullets f_bullets foes player t =
   in
   let new_f_bullets, foes = aux [] [] foes in
   let f_bullets = List.rev_append new_f_bullets f_bullets in
+  let foes = List.rev foes in
   (f_bullets, foes)
 
 
@@ -197,13 +251,13 @@ let foe_not_touched p_bullets foe =
     ) p_bullets)
 
 
-let step_foes  foes player f_bullets p_bullets t =
+let step_foes  renderer foes player f_bullets p_bullets t =
   let step_foe foe =
     let (x, y) = foe.foe_pos in
     let new_pos = (x, y + 2) in
     { foe with foe_pos = new_pos }
   in
-  let foes = new_foes_opt foes t in
+  let foes = new_foes_opt foes renderer t in
   let f_bullets, foes = gun_new_f_bullets f_bullets foes player t in
   let foes = List.map step_foe foes in
   let foes = List.filter foe_inside foes in
@@ -262,11 +316,11 @@ let step_player  player p_bullets t =
   (player, p_bullets)
 
 
-let rec game_over renderer player f_bullets p_bullets foes =
+let rec game_over  renderer foes player f_bullets p_bullets =
   let _ = event_loop player in
-  display  renderer orange player f_bullets p_bullets foes;
+  display  renderer orange foes player f_bullets p_bullets;
   Timer.delay 200;
-  game_over renderer player f_bullets p_bullets foes
+  game_over  renderer foes player f_bullets p_bullets
 
 
 let () =
@@ -292,20 +346,20 @@ let () =
   let p_bullets = [] in
   let f_bullets = [] in
 
-  let rec main_loop ~player ~f_bullets ~p_bullets ~foes =
+  let rec main_loop ~foes ~player ~f_bullets ~p_bullets =
     let player = event_loop player in
     let t = Timer.get_ticks () in
 
-    let foes, f_bullets = step_foes  foes player f_bullets p_bullets t in
+    let foes, f_bullets = step_foes  renderer foes player f_bullets p_bullets t in
     let f_bullets = step_foes_bullets  f_bullets t in
     let p_bullets = step_player_bullets  p_bullets in
     let player, p_bullets = step_player  player p_bullets t in
 
-    display  renderer black player f_bullets p_bullets foes;
+    display  renderer grey foes player f_bullets p_bullets;
     Timer.delay 60;
 
     if player_touched  player f_bullets
-    then game_over renderer player f_bullets p_bullets foes
-    else main_loop ~player ~f_bullets ~p_bullets ~foes
+    then game_over renderer foes player f_bullets p_bullets
+    else main_loop ~foes ~player ~f_bullets ~p_bullets
   in
-  main_loop ~player ~f_bullets ~p_bullets ~foes
+  main_loop ~foes ~player ~f_bullets ~p_bullets
