@@ -479,18 +479,17 @@ let background = make_background ()
 
 
 let display_background renderer playing =
-  for y = 0 to pred 12 do
-    for x = 0 to pred 16 do
+  Array.iteri (fun y row ->
+    Array.iteri (fun x rgb ->
       let _x = x * 40
       and _y = y * 40 in
-      let rgb = background.(y).(x) in
       if playing
       then fill_rect40 renderer rgb _x _y
       else
         let r, g, b = rgb in
         fill_rect40 renderer (r + 40, g / 2, b / 3) _x _y
-    done
-  done
+    ) row
+  ) background
 
 
 let src_rect = Rect.make4 0 0 5 5
@@ -555,7 +554,7 @@ let display  renderer playing player f_bullets p_bullets foes
 ;;
 
 
-let proc_events player = function
+let proc_events player renderer = function
   | Event.KeyDown { Event.keycode = Keycode.Left } ->
       { player with p_dir = { player.p_dir with left = true } }
   | Event.KeyDown { Event.keycode = Keycode.Right } ->
@@ -581,6 +580,13 @@ let proc_events player = function
 
   | Event.KeyDown { Event.keycode = Keycode.F } ->
       Gc.full_major (); player
+
+  | Event.KeyDown { Event.keycode = Keycode.S } ->
+      let surf = Surface.create_rgb ~width ~height ~depth:32 in
+      Render.read_pixels renderer surf;
+      Surface.save_bmp surf ~filename:"screenshot.bmp";
+      Surface.free surf;
+      player
 
   | Event.KeyDown { Event.keycode = Keycode.Q }
   | Event.KeyDown { Event.keycode = Keycode.Escape }
@@ -625,12 +631,12 @@ let proc_events player = function
   | _ -> player
 
 
-let rec event_loop player =
+let rec event_loop player renderer =
   match Event.poll_event () with
   | None -> player
   | Some ev ->
-      let player = proc_events player ev in
-      event_loop player
+      let player = proc_events player renderer ev in
+      event_loop player renderer
 
 
 let pixel_for_surface ~surface ~rgb =
@@ -886,7 +892,7 @@ let step_player  player p_bullets t =
 
 let rec game_over renderer player f_bullets p_bullets foes
       f_bullet_tex p_bullet_tex letters_tex =
-  let _ = event_loop player in
+  let _ = event_loop player renderer in
   display  renderer false player f_bullets p_bullets foes
       f_bullet_tex p_bullet_tex letters_tex;
   Timer.delay 200;
@@ -950,7 +956,7 @@ let () =
   in
 
   let rec main_loop ~player ~f_bullets ~p_bullets ~foes =
-    let player = event_loop player in
+    let player = event_loop player renderer in
     let t = Timer.get_ticks () in
 
     let foes, f_bullets = step_foes  renderer foes player f_bullets p_bullets t in
