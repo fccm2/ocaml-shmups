@@ -15,9 +15,10 @@ open IntAGeom
 module QBCurve = Curves2d.Bezier.Quadratic
 module Timeline = IpTimed
 
-type 'a foe = {
+type foe = {
   foe_pos: int * int;
-  foe_anim: 'a;
+  foe_anim:
+    (point2d, point2d * point2d * point2d) Timeline.animated list;
   foe_last_shot: int;
   foe_shoot_freq: int;
   foe_texture: Texture.t;
@@ -386,14 +387,14 @@ let display  renderer playing player f_bullets p_bullets foes
   let s = Printf.sprintf "missed: %d" !missed in
   String.iteri (fun i c ->
     let tex = List.assoc c letters_tex in
-    let x = i * 20 + width - 220 in
+    let x = i * 15 + width - 170 in
     let y = 10 in
     draw_letter tex x y 10;
   ) s;
   let s = Printf.sprintf "score: %d" (!shot - !missed) in
   String.iteri (fun i c ->
     let tex = List.assoc c letters_tex in
-    let x = i * 20 + 10 in
+    let x = i * 15 + 10 in
     let y = height - 25 in
     draw_letter tex x y 10;
   ) s;
@@ -699,7 +700,7 @@ let step_foes  renderer foes player f_bullets p_bullets t =
     List.filter (fun foe ->
       if foe_inside t foe
       then true
-      else (incr missed; false)
+      else (incr missed; Texture.destroy foe.foe_texture; false)
     ) foes
   in
   let foes =
@@ -847,7 +848,7 @@ let () =
     let t2 = Timer.get_ticks () in
     let dt = t2 - t in
 
-    Timer.delay (max 0 (50 - dt));
+    Timer.delay (max 0 (40 - dt));
 
     if player_touched  player f_bullets
     then begin
