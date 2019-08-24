@@ -581,12 +581,14 @@ let proc_events player renderer = function
   | Event.KeyDown { Event.keycode = Keycode.F } ->
       Gc.full_major (); player
 
+  (*
   | Event.KeyDown { Event.keycode = Keycode.S } ->
       let surf = Surface.create_rgb ~width ~height ~depth:32 in
       Render.read_pixels renderer surf;
       Surface.save_bmp surf ~filename:"screenshot.bmp";
       Surface.free surf;
       player
+  *)
 
   | Event.KeyDown { Event.keycode = Keycode.Q }
   | Event.KeyDown { Event.keycode = Keycode.Escape }
@@ -738,24 +740,49 @@ let fe t1 t2 t ps =
 let make_foe_anim t =
   let t1 = t
   and t2 = t + 6000 + Random.int 4000 in
-  let p1, p2, p3 =
-    match Random.int 5 with
-    | 0 ->  (* left to right *)
+  match Random.int 7 with
+  | 0 ->  (* left to right *)
+      let p1, p2, p3 =
         (-20, Random.int (height - 20)),
         (Random.int width, Random.int (height - 20)),
         (width, Random.int (height - 20))
-    | 1 ->  (* right to left *)
+      in
+      let ps = (p1, p2, p3) in
+      [ `Evol (t1, t2, fe, ps) ]
+  | 1 ->  (* right to left *)
+      let p1, p2, p3 =
         (width, Random.int (height - 20)),
         (Random.int width, Random.int (height - 20)),
         (-20, Random.int (height - 20))
-    | 2 | 3 | 4 ->  (* top to bottom *)
+      in
+      let ps = (p1, p2, p3) in
+      [ `Evol (t1, t2, fe, ps) ]
+  | 2 | 3 | 4 ->  (* top to bottom *)
+      let p1, p2, p3 =
         (Random.int (width - 20), -20),
         (Random.int (width - 20), Random.int (height - 20)),
         (Random.int (width - 20), height)
-    | _ -> assert false
-  in
-  let ps = (p1, p2, p3) in
-  [ `Evol (t1, t2, fe, ps) ]
+      in
+      let ps = (p1, p2, p3) in
+      [ `Evol (t1, t2, fe, ps) ]
+  | 5 | 6 ->  (* top to middle, pause, middle to bottom *)
+      let t1 = t
+      and t2 = t + 4000 + Random.int 3000 in
+      let t3 = t2 + 2000 + Random.int 2000 in
+      let t4 = t3 + 4000 + Random.int 3000 in
+      let p1, p2, p3, p4, p5 =
+        (Random.int (width - 20), -20),
+        (Random.int (width - 20), Random.int (height - 20)),
+        (Random.int (width - 20), Random.int (height - 20)),
+        (Random.int (width - 20), Random.int (height - 20)),
+        (Random.int (width - 20), height)
+      in
+      let ps1 = (p1, p2, p3) in
+      let ps2 = (p3, p4, p5) in
+      [ `Evol (t1, t2, fe, ps1);
+        `From (t2, p3);
+        `Evol (t3, t4, fe, ps2); ]
+  | _ -> assert false
 
 
 let new_foe renderer t =
