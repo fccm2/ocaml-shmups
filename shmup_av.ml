@@ -16,7 +16,6 @@ type foe = {
   foe_pos: int * int;
   foe_last_shot: int;
   foe_shoot_freq: int;
-  foe_gc: string;
 }
 
 type foe_bullet = {
@@ -50,6 +49,8 @@ let orange = (255, 127, 0)
 let grey   = (100, 100, 100)
 let alpha  = 255
 
+let score = ref 0
+
 
 let fill_rect renderer color (x, y) =
   let rect = Rect.make4 x y 20 20 in
@@ -58,7 +59,7 @@ let fill_rect renderer color (x, y) =
 ;;
 
 
-let display  renderer bg_color foes player f_bullets p_bullets =
+let display  renderer bg_color player f_bullets p_bullets foes =
   Render.set_draw_color renderer bg_color alpha;
   Render.clear renderer;
   List.iter (fun bullet -> fill_rect renderer yellow bullet.bullet_pos) f_bullets;
@@ -97,9 +98,6 @@ let proc_events player = function
       { player with p_shooting = true }
   | Event.KeyUp { Event.keycode = Keycode.Z } ->
       { player with p_shooting = false }
-
-  | Event.KeyDown { Event.keycode = Keycode.F } ->
-      Gc.full_major (); player
 
   | Event.KeyDown { Event.keycode = Keycode.Q }
   | Event.KeyDown { Event.keycode = Keycode.Escape }
@@ -198,12 +196,7 @@ let new_foe renderer t =
   let foe_pos = (20 * Random.int (width / 20), -20) in
   let foe_last_shot = t in
   let foe_shoot_freq = 1600 + Random.int 1800 in
-  let foe_gc = String.make 1 ' ' in
-  let foe = { foe_texture; foe_pos; foe_last_shot; foe_shoot_freq; foe_gc } in
-  Gc.finalise (fun foe ->
-    Printf.printf "# finalising texture\n%!";
-    Texture.destroy foe.foe_texture) foe;
-  (foe)
+  { foe_texture; foe_pos; foe_last_shot; foe_shoot_freq }
 
 
 let new_foes_opt foes renderer t =
@@ -241,14 +234,13 @@ let foe_inside foe =
   (y < height)
 
 
-let foe_not_touched p_bullets foe =
+let foe_touched p_bullets foe =
   let x, y = foe.foe_pos in
   let foe_rect = Rect.make4 x y 20 20 in
-  not (
-    List.exists (fun (x, y) ->
-      let bullet_rect = Rect.make4 x y 20 20 in
-      Rect.has_intersection foe_rect bullet_rect
-    ) p_bullets)
+  List.exists (fun (x, y) ->
+    let bullet_rect = Rect.make4 x y 20 20 in
+    Rect.has_intersection foe_rect bullet_rect
+  ) p_bullets
 
 
 let step_foes  renderer foes player f_bullets p_bullets t =
@@ -261,7 +253,13 @@ let step_foes  renderer foes player f_bullets p_bullets t =
   let f_bullets, foes = gun_new_f_bullets f_bullets foes player t in
   let foes = List.map step_foe foes in
   let foes = List.filter foe_inside foes in
-  let foes = List.filter (foe_not_touched p_bullets) foes in
+  let foes =
+    List.filter (fun foe ->
+      if foe_touched p_bullets foe
+      then (incr score; false)
+      else true
+    ) foes
+  in
   (foes, f_bullets)
 
 
@@ -316,11 +314,11 @@ let step_player  player p_bullets t =
   (player, p_bullets)
 
 
-let rec game_over  renderer foes player f_bullets p_bullets =
+let rec game_over renderer player f_bullets p_bullets foes =
   let _ = event_loop player in
-  display  renderer orange foes player f_bullets p_bullets;
+  display  renderer orange player f_bullets p_bullets foes;
   Timer.delay 200;
-  game_over  renderer foes player f_bullets p_bullets
+  game_over renderer player f_bullets p_bullets foes
 
 
 let () =
@@ -346,7 +344,7 @@ let () =
   let p_bullets = [] in
   let f_bullets = [] in
 
-  let rec main_loop ~foes ~player ~f_bullets ~p_bullets =
+  let rec main_loop ~player ~f_bullets ~p_bullets ~foes =
     let player = event_loop player in
     let t = Timer.get_ticks () in
 
@@ -355,11 +353,14 @@ let () =
     let p_bullets = step_player_bullets  p_bullets in
     let player, p_bullets = step_player  player p_bullets t in
 
-    display  renderer grey foes player f_bullets p_bullets;
+    display  renderer grey player f_bullets p_bullets foes;
     Timer.delay 60;
 
     if player_touched  player f_bullets
-    then game_over renderer foes player f_bullets p_bullets
-    else main_loop ~foes ~player ~f_bullets ~p_bullets
+    then begin
+      Printf.printf "# score: %d\n%!" !score;
+      game_over renderer player f_bullets p_bullets foes
+    end
+    else main_loop ~player ~f_bullets ~p_bullets ~foes
   in
-  main_loop ~foes ~player ~f_bullets ~p_bullets
+  main_loop ~player ~f_bullets ~p_bullets ~foes
