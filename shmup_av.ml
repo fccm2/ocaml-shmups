@@ -17,7 +17,7 @@ type foe = {
   foe_shoot_freq: int;
 }
 
-type bullet = {
+type foe_bullet = {
   bullet_pos: int * int;
   bullet_line: (int * int) * (int * int);
   bullet_birth: int;
@@ -42,6 +42,7 @@ let width, height = (640, 480)
 
 let red    = (255, 0, 0)
 let blue   = (0, 0, 255)
+let green  = (0, 255, 0)
 let yellow = (255, 255, 0)
 let orange = (255, 127, 0)
 let black  = (0, 0, 0)
@@ -55,11 +56,12 @@ let fill_rect renderer color (x, y) =
 ;;
 
 
-let display renderer bg_color player f_bullets foes =
+let display  renderer bg_color player f_bullets p_bullets foes =
   Render.set_draw_color renderer bg_color alpha;
   Render.clear renderer;
   List.iter (fun bullet -> fill_rect renderer yellow bullet.bullet_pos) f_bullets;
   List.iter (fun foe -> fill_rect renderer red foe.foe_pos) foes;
+  List.iter (fun pos -> fill_rect renderer green pos) p_bullets;
   fill_rect renderer blue player.p_pos;
   Render.render_present renderer;
 ;;
@@ -208,7 +210,7 @@ let player_touched player f_bullets =
   ) f_bullets
 
 
-let step_player player =
+let player_moving player =
   let x, y = player.p_pos in
   { player with p_pos =
     match player.p_dir with
@@ -226,9 +228,32 @@ let step_player player =
   }
 
 
+let step_player_bullets p_bullets =
+  p_bullets |>
+    List.map (fun (x, y) -> (x, y - 8)) |>
+    List.filter (fun (x, y) -> y > -20)
+
+
+let player_shooting  player p_bullets t =
+  if player.p_shooting
+  && t - player.p_last_shot > player.p_shoot_freq
+  then (* shoot *)
+    let bullet = player.p_pos in
+    let player = { player with p_last_shot = t } in
+    (player, bullet :: p_bullets)
+  else
+    (player, p_bullets)
+
+
+let step_player  player p_bullets t =
+  let player = player_moving player in
+  let player, p_bullets = player_shooting  player p_bullets t in
+  (player, p_bullets)
+
+
 let rec game_over renderer player f_bullets p_bullets foes =
   let _ = event_loop player in
-  display renderer orange player f_bullets foes;
+  display  renderer orange player f_bullets p_bullets foes;
   Timer.delay 200;
   game_over renderer player f_bullets p_bullets foes
 
@@ -242,8 +267,8 @@ let () =
   in
   let player = {
     p_pos = (width / 2, height - 60);
-    p_last_shot = 0;
-    p_shoot_freq = 0;
+    p_last_shot = Timer.get_ticks ();
+    p_shoot_freq = 400;
     p_shooting = false;
     p_dir =
       { left = false;
@@ -256,16 +281,20 @@ let () =
   let p_bullets = [] in
   let f_bullets = [] in
 
-  let rec main_loop player f_bullets p_bullets foes =
+  let rec main_loop ~player ~f_bullets ~p_bullets ~foes =
     let player = event_loop player in
     let t = Timer.get_ticks () in
-    let foes, f_bullets = step_foes foes f_bullets player t in
-    let f_bullets = step_foes_bullets f_bullets t in
-    let player = step_player player in
-    display renderer black player f_bullets foes;
+
+    let foes, f_bullets = step_foes  foes f_bullets player t in
+    let f_bullets = step_foes_bullets  f_bullets t in
+    let p_bullets = step_player_bullets  p_bullets in
+    let player, p_bullets = step_player  player p_bullets t in
+
+    display  renderer black player f_bullets p_bullets foes;
     Timer.delay 60;
-    if player_touched player f_bullets
+
+    if player_touched  player f_bullets
     then game_over renderer player f_bullets p_bullets foes
-    else main_loop player f_bullets p_bullets foes
+    else main_loop ~player ~f_bullets ~p_bullets ~foes
   in
-  main_loop player f_bullets p_bullets foes
+  main_loop ~player ~f_bullets ~p_bullets ~foes
