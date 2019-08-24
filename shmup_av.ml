@@ -187,7 +187,17 @@ let foe_inside foe =
   (y < height)
 
 
-let step_foes foes f_bullets player t =
+let foe_not_touched p_bullets foe =
+  let x, y = foe.foe_pos in
+  let foe_rect = Rect.make4 x y 20 20 in
+  not (
+    List.exists (fun (x, y) ->
+      let bullet_rect = Rect.make4 x y 20 20 in
+      Rect.has_intersection foe_rect bullet_rect
+    ) p_bullets)
+
+
+let step_foes  foes player f_bullets p_bullets t =
   let step_foe foe =
     let (x, y) = foe.foe_pos in
     let new_pos = (x, y + 2) in
@@ -197,6 +207,7 @@ let step_foes foes f_bullets player t =
   let f_bullets, foes = gun_new_f_bullets f_bullets foes player t in
   let foes = List.map step_foe foes in
   let foes = List.filter foe_inside foes in
+  let foes = List.filter (foe_not_touched p_bullets) foes in
   (foes, f_bullets)
 
 
@@ -285,7 +296,7 @@ let () =
     let player = event_loop player in
     let t = Timer.get_ticks () in
 
-    let foes, f_bullets = step_foes  foes f_bullets player t in
+    let foes, f_bullets = step_foes  foes player f_bullets p_bullets t in
     let f_bullets = step_foes_bullets  f_bullets t in
     let p_bullets = step_player_bullets  p_bullets in
     let player, p_bullets = step_player  player p_bullets t in
