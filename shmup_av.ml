@@ -19,7 +19,8 @@ type foe = {
 
 type bullet = {
   bullet_pos: int * int;
-  bullet_dir: int * int;
+  bullet_line: (int * int) * (int * int);
+  bullet_birth: int;
 }
 
 type player = {
@@ -79,12 +80,32 @@ let bullet_inside bullet =
   (x > -20)
 
 
-let step_bullets bullets =
+let vec_mul (x, y) k =
+  (x * k,
+   y * k)
+
+let vec_div (x, y) k =
+  (x / k,
+   y / k)
+
+let vec_add (ax, ay) (bx, by) =
+  (ax + bx,
+   ay + by)
+
+let point_on_line (p1, p2) i t =
+  let ti = i - t in
+  vec_div (
+      vec_add
+        (vec_mul p1 ti)
+        (vec_mul p2 t)
+    ) i
+
+
+let step_bullets bullets t =
   let step_bullet bullet =
-    let x, y = bullet.bullet_pos in
-    let dx, dy = bullet.bullet_dir in
-    let new_pos = (x + dx, y + dy) in
-    { bullet with bullet_pos = new_pos }
+    let dt = t - bullet.bullet_birth in
+    let p = point_on_line bullet.bullet_line 6000 dt in
+    { bullet with bullet_pos = p }
   in
   let bullets = List.map step_bullet bullets in
   let bullets = List.filter bullet_inside bullets in
@@ -92,9 +113,9 @@ let step_bullets bullets =
 
 
 let new_foe t =
-  let foe_pos = (20 * Random.int 32, -20) in
+  let foe_pos = (20 * Random.int (width / 20), -20) in
+  let last_shot = Timer.get_ticks () in
   let shoot_freq = 1200 + Random.int 1000 in
-  let last_shot = t in
   { foe_pos; last_shot; shoot_freq }
 
 
@@ -117,7 +138,8 @@ let gun_new_bullets bullets foes player t =
           let updated_foe = { foe with last_shot = t } in
           let bullet =
             { bullet_pos = foe.foe_pos;
-              bullet_dir = (0, 10) }
+              bullet_line = (foe.foe_pos, player.player_pos);
+              bullet_birth = t; }
           in
           aux (bullet :: acc1) (updated_foe :: acc2) foes
   in
@@ -182,7 +204,7 @@ let () =
     let req_dir = event_loop dir_player in
     let t = Timer.get_ticks () in
     let foes, bullets = step_foes foes bullets player t in
-    let bullets = step_bullets bullets in
+    let bullets = step_bullets bullets t in
     let player = step_player player req_dir in
     display renderer player bullets foes;
     Timer.delay 60;
