@@ -10,10 +10,138 @@
  redistribute it freely.
 *)
 open Sdl
-open IntAGeom
 
-module QBCurve = Curves2d.Bezier.Quadratic
-module Timeline = IpTimed
+type point2d = int * int  (* (x, y) *)
+type vector2d = int * int  (* (x, y) *)
+
+module Vector2d : sig
+  type t = vector2d  (** (x, y) *)
+
+  val add : t -> t -> t
+  (** [a + b] *)
+
+  val sub : t -> t -> t
+  (** [a - b] *)
+
+  val mul : t -> int -> t
+  (** [v * k] *)
+
+  val div : t -> int -> t
+  (** [v / k] *)
+
+  module Infix : sig
+    val ( +. ) : t -> t -> t
+    val ( -. ) : t -> t -> t
+    val ( *. ) : t -> int -> t
+    val ( /. ) : t -> int -> t
+  end
+end = struct
+  type t = vector2d
+
+  let add (ax, ay) (bx, by) =
+    (ax + bx,
+     ay + by)
+
+  let sub (ax, ay) (bx, by) =
+    (ax - bx,
+     ay - by)
+
+  let mul (x, y) k =
+    (x * k,
+     y * k)
+
+  let div (x, y) k =
+    (x / k,
+     y / k)
+
+  module Infix = struct
+    let ( +. ) = add ;;
+    let ( -. ) = sub ;;
+    let ( *. ) = mul ;;
+    let ( /. ) = div ;;
+  end
+end
+
+module QuadraticBezierCurves : sig
+  val interval : int * int
+  (** The interval for interpolation is [(0, 1000)]
+      instead of [(0.0, 1.0)] for [floats]. *)
+
+  val point_on_curve :
+    point2d * point2d * point2d ->
+    int -> point2d
+  (** [point_on_curve (p1, p2, p3) t] returns a point on the quadratic bezier
+      curve defined by p1, p2 and p3, with t in the interval predefined above *)
+
+end = struct
+  let interval = (0, 1000)
+
+  let point_on_curve (p1, p2, p3) t =
+    let ti = 1000 - t in
+    Vector2d.Infix.(
+      ( p1 *. ((ti * ti) / 1000) +.
+        p2 *. ((2 * ti * t) / 1000) +.
+        p3 *. ((t * t) / 1000)
+      ) /. 1000
+    )
+end
+
+module Timeline : sig
+  type time = int
+
+  type ('a, 'b) animated = [
+    | `From of time * 'a
+      (** [From (t, v)] after time [t] is reach (and before next timeline chunk)
+          the returned value will be [v] *)
+    | `Evol of time * time * (time -> time -> time -> 'b -> 'a) * 'b
+      (** [Evol (t1, t2, f, d)] when [t] is between [t1] and [t2] the value is
+          the result of [f t1 t2 t d] *)
+    ]
+
+  val val_at :
+    time -> ('a, 'b) animated list -> 'a
+
+  val finished :
+    time -> ('a, 'b) animated list -> bool
+
+end = struct
+  type time = int
+
+  (* animating a value over time *)
+
+  type ('a, 'b) animated = [
+    | `From of time * 'a
+    | `Evol of time * time * (time -> time -> time -> 'b -> 'a) * 'b
+    ]
+
+  (* timeline function *)
+
+  let rec val_at t = function
+    | `From(t1, v) :: `From(t2,_) :: _
+    | `From(t1, v) :: `Evol(t2,_,_,_) :: _
+      when t1 <= t && t < t2 -> v
+    
+    | `From(t, v) :: [] -> v
+    
+    | `Evol(t1, t2, f, v) :: []
+      when t >= t2 -> f t1 t2 t2 v
+    
+    | `Evol(t1, t2, f, v) :: _
+      when t1 <= t && t <= t2 -> f t1 t2 t v
+    
+    | _ :: tl -> val_at t tl
+    
+    | [] -> invalid_arg "val_at"
+
+
+  let finished t = function
+    | `From _ :: [] -> true
+    | `Evol(_, t2, _, _) :: [] -> t > t2
+    | _ -> false
+end
+
+module QBCurve = QuadraticBezierCurves
+
 
 type foe = {
   foe_pos: int * int;
@@ -545,7 +673,7 @@ let make_avatar renderer ?color () =
   (texture)
 
 
-let make_bullet_tex renderer pattern ~color =
+let texture_of_pattern renderer pattern ~color =
   let surface = Surface.create_rgb ~width:5 ~height:5 ~depth:32 in
   let rgb = (255, 255, 255) in
   let key = pixel_for_surface ~surface ~rgb in
@@ -571,25 +699,13 @@ let f_bullet_inside bullet =
   (x > -20)
 
 
-let vec_mul (x, y) k =
-  (x * k,
-   y * k)
-
-let vec_div (x, y) k =
-  (x / k,
-   y / k)
-
-let vec_add (ax, ay) (bx, by) =
-  (ax + bx,
-   ay + by)
-
 let point_on_line (p1, p2) i t =
   let ti = i - t in
-  vec_div (
-      vec_add
-        (vec_mul p1 ti)
-        (vec_mul p2 t)
-    ) i
+  Vector2d.Infix.(
+    ( (p1 *. ti) +.
+      (p2 *. t)
+    ) /. i
+  )
 
 
 let step_foes_bullets f_bullets t =
@@ -610,7 +726,7 @@ let min_t, max_t = QBCurve.interval
 
 let fe t1 t2 t ps =
   let t = inter1 t t1 t2 min_t max_t in
-  QBCurve.pnt ps t
+  QBCurve.point_on_curve ps t
 
 
 let make_foe_anim t =
@@ -619,16 +735,16 @@ let make_foe_anim t =
   let p1, p2, p3 =
     match Random.int 5 with
     | 0 ->  (* left to right *)
-        (-20, Random.int height),
-        (Random.int width, Random.int height),
-        (width, Random.int height)
+        (-20, Random.int (height - 20)),
+        (Random.int width, Random.int (height - 20)),
+        (width, Random.int (height - 20))
     | 1 ->  (* right to left *)
-        (width, Random.int height),
-        (Random.int width, Random.int height),
-        (-20, Random.int height)
+        (width, Random.int (height - 20)),
+        (Random.int width, Random.int (height - 20)),
+        (-20, Random.int (height - 20))
     | 2 | 3 | 4 ->  (* top to bottom *)
         (Random.int (width - 20), -20),
-        (Random.int width, Random.int height),
+        (Random.int (width - 20), Random.int (height - 20)),
         (Random.int (width - 20), height)
     | _ -> assert false
   in
@@ -823,12 +939,12 @@ let () =
     [| 1; 0; 0; 0; 1 |];
   |] in
 
-  let f_bullet_tex = make_bullet_tex renderer fb_pattern ~color:yellow in
-  let p_bullet_tex = make_bullet_tex renderer pb_pattern ~color:green in
+  let f_bullet_tex = texture_of_pattern renderer fb_pattern ~color:yellow in
+  let p_bullet_tex = texture_of_pattern renderer pb_pattern ~color:green in
 
   let letters_tex =
     List.map (fun (c, pat) ->
-      let tex = make_bullet_tex renderer pat ~color:green in
+      let tex = texture_of_pattern renderer pat ~color:green in
       (c, tex)
     ) letters
   in
