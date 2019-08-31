@@ -143,7 +143,7 @@ end
 module QBCurve = QuadraticBezierCurves
 
 
-type foe_color = Green | Red
+type polar_color = Green | Red
 
 type foe = {
   foe_pos: int * int;
@@ -151,7 +151,7 @@ type foe = {
     (point2d, point2d * point2d * point2d) Timeline.animated list;
   foe_last_shot: int;
   foe_shoot_freq: int;
-  foe_color: foe_color;
+  foe_color: polar_color;
   foe_texture: Texture.t;
 }
 
@@ -173,6 +173,7 @@ type player = {
   p_last_shot: int;
   p_shoot_freq: int;
   p_shooting: bool;
+  p_shoot_color: polar_color;
   p_dir: player_dir;
   p_texture: Texture.t;
 }
@@ -181,13 +182,14 @@ type game_state = {
   player: player;
   foes: foe list;
   f_bullets: foe_bullet list;  (* foes bullets *)
-  p_bullets: (int * int) list;  (* player bullets *)
+  p_bullets: (int * int * polar_color) list;  (* player bullets *)
 }
 
 type game_data = {
   renderer: Render.t;
-  f_bullet_tex: Texture.t;
-  p_bullet_tex: Texture.t;
+  f_bullet_tex: Texture.t;  (* texture for foes bullets *)
+  p_bullet_tex_green: Texture.t; (* red and green textures for player bullets *)
+  p_bullet_tex_red: Texture.t;
   letters_tex: (char * Texture.t) list;
 }
 
@@ -195,6 +197,7 @@ let width, height = (640, 480)
 
 let blue   = (0, 0, 255)
 let green  = (0, 255, 0)
+let red    = (255, 0, 0)
 let yellow = (255, 255, 0)
 let alpha  = 255
 
@@ -559,10 +562,14 @@ let display ~playing game_state game_data =
     Render.copy game_data.renderer ~texture ~src_rect ~dst_rect ();
   ) game_state.foes;
 
-  List.iter (fun pos ->
-    let x, y = pos in
+  List.iter (fun bullet ->
+    let x, y, polar_color = bullet in
     let dst_rect = Rect.make4 x y 20 20 in
-    let texture = game_data.p_bullet_tex in
+    let texture =
+      match polar_color with
+      | Red -> game_data.p_bullet_tex_red
+      | Green -> game_data.p_bullet_tex_green
+    in
     Render.copy game_data.renderer ~texture ~src_rect ~dst_rect ();
   ) game_state.p_bullets;
 
@@ -601,6 +608,10 @@ let proc_events player renderer = function
   | Event.KeyUp { Event.keycode = Keycode.Z } ->
       { player with p_shooting = false }
 
+  | Event.KeyDown { Event.keycode = Keycode.X } ->
+      { player with p_shoot_color =
+          if player.p_shoot_color = Green then Red else Green }
+
   | Event.KeyDown { Event.keycode = Keycode.F } ->
       Gc.full_major (); player
 
@@ -621,6 +632,11 @@ let proc_events player renderer = function
       { player with p_shooting = true }
   | Event.Joy_Button_Up { Event.jb_which = 0; Event.jb_button = 0 } ->
       { player with p_shooting = false }
+
+  | Event.Joy_Button_Down { Event.jb_which = 0; Event.jb_button = 1 } ->
+      { player with p_shoot_color =
+          if player.p_shoot_color = Green then Red else Green }
+
   | Event.Joy_Axis_Motion e -> player
   | Event.Joy_Hat_Motion e ->
       begin match e.Event.jh_dir with
@@ -855,9 +871,10 @@ let foe_inside t foe =
 let foe_touched p_bullets foe =
   let x, y = foe.foe_pos in
   let foe_rect = Rect.make4 x y 20 20 in
-  List.exists (fun (x, y) ->
-    let bullet_rect = Rect.make4 x y 20 20 in
-    Rect.has_intersection foe_rect bullet_rect
+  List.exists (fun (x, y, bullet_color) ->
+    foe.foe_color = bullet_color &&
+      let bullet_rect = Rect.make4 x y 20 20 in
+      Rect.has_intersection foe_rect bullet_rect
   ) p_bullets
 
 
@@ -921,8 +938,8 @@ let player_moving player =
 let step_player_bullets  game_state =
   let p_bullets =
     game_state.p_bullets
-      |> List.map (fun (x, y) -> (x, y - 8))
-      |> List.filter (fun (x, y) -> y > -20)
+      |> List.map (fun (x, y, col) -> (x, y - 8, col))
+      |> List.filter (fun (x, y, _) -> y > -20)
   in
   { game_state with p_bullets }
 
@@ -931,7 +948,9 @@ let player_shooting  player p_bullets t =
   if player.p_shooting
   && t - player.p_last_shot > player.p_shoot_freq
   then (* shoot *)
-    let bullet = player.p_pos in
+    let x, y = player.p_pos in
+    let color = player.p_shoot_color in
+    let bullet = (x, y, color) in
     let player = { player with p_last_shot = t } in
     (player, bullet :: p_bullets)
   else
@@ -969,6 +988,7 @@ let () =
     p_last_shot = Timer.get_ticks ();
     p_shoot_freq = 300;
     p_shooting = false;
+    p_shoot_color = Green;
     p_dir =
       { left = false;
         right = false;
@@ -994,7 +1014,8 @@ let () =
   |] in
 
   let f_bullet_tex = texture_of_pattern renderer fb_pattern ~color:yellow in
-  let p_bullet_tex = texture_of_pattern renderer pb_pattern ~color:green in
+  let p_bullet_tex_red = texture_of_pattern renderer pb_pattern ~color:red in
+  let p_bullet_tex_green = texture_of_pattern renderer pb_pattern ~color:green in
 
   let letters_tex =
     List.map (fun (c, pat) ->
@@ -1011,7 +1032,8 @@ let () =
   } in
   let game_data = {
     f_bullet_tex;
-    p_bullet_tex;
+    p_bullet_tex_red;
+    p_bullet_tex_green;
     letters_tex;
     renderer;
   } in
