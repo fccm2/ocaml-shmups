@@ -694,6 +694,10 @@ let rec event_loop  game_state game_data =
 
 
 let proc_events_r = function
+  | Event.KeyDown { Event.keycode = Keycode.Q }
+  | Event.KeyDown { Event.keycode = Keycode.Escape }
+  | Event.Quit _ -> Sdl.quit (); exit 0
+
   | Event.KeyDown { Event.keycode = Keycode.Return }
   | Event.KeyDown { Event.keycode = Keycode.Space } -> true
 
@@ -703,9 +707,12 @@ let proc_events_r = function
 
 
 let rec event_restart () =
-  match Event.poll_event () with
-  | None -> false
-  | Some ev -> proc_events_r ev
+  let rec aux acc =
+    match Event.poll_event () with
+    | None -> List.exists (fun restart -> restart) acc
+    | Some ev -> aux (proc_events_r ev :: acc)
+  in
+  aux []
 
 
 let pixel_for_surface ~surface ~rgb =
