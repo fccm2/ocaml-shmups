@@ -174,6 +174,20 @@ type player = {
   p_texture: Texture.t;
 }
 
+type game_state = {
+  player: player;
+  foes: foe list;
+  f_bullets: foe_bullet list;  (* foes bullets *)
+  p_bullets: (int * int) list;  (* player bullets *)
+}
+
+type game_data = {
+  renderer: Render.t;
+  f_bullet_tex: Texture.t;
+  p_bullet_tex: Texture.t;
+  letters_tex: (char * Texture.t) list;
+}
+
 let width, height = (640, 480)
 
 let blue   = (0, 0, 255)
@@ -495,32 +509,31 @@ let display_background renderer playing =
 let src_rect = Rect.make4 0 0 5 5
 
 
-let display  renderer playing player f_bullets p_bullets foes
-      f_bullet_tex p_bullet_tex letters_tex =
+let display ~playing game_state game_data =
 
-  display_background renderer playing;
+  display_background game_data.renderer playing;
 
   let draw_letter texture x y size =
     let dst_rect = Rect.make4 x y size size in
-    Render.copy renderer ~texture ~src_rect ~dst_rect ();
+    Render.copy game_data.renderer ~texture ~src_rect ~dst_rect ();
   in
   let s = Printf.sprintf "shot: %d" !shot in
   String.iteri (fun i c ->
-    let tex = List.assoc c letters_tex in
+    let tex = List.assoc c game_data.letters_tex in
     let x = i * 20 + 10 in
     let y = 10 in
     draw_letter tex x y 15;
   ) s;
   let s = Printf.sprintf "missed: %d" !missed in
   String.iteri (fun i c ->
-    let tex = List.assoc c letters_tex in
+    let tex = List.assoc c game_data.letters_tex in
     let x = i * 15 + width - 170 in
     let y = 10 in
     draw_letter tex x y 10;
   ) s;
   let s = Printf.sprintf "score: %d" (!shot - !missed) in
   String.iteri (fun i c ->
-    let tex = List.assoc c letters_tex in
+    let tex = List.assoc c game_data.letters_tex in
     let x = i * 15 + 10 in
     let y = height - 25 in
     draw_letter tex x y 10;
@@ -529,28 +542,32 @@ let display  renderer playing player f_bullets p_bullets foes
   List.iter (fun bullet ->
     let x, y = bullet.bullet_pos in
     let dst_rect = Rect.make4 x y 20 20 in
-    Render.copy renderer ~texture:f_bullet_tex ~src_rect ~dst_rect ();
-  ) f_bullets;
+    let texture = game_data.f_bullet_tex in
+    Render.copy game_data.renderer ~texture ~src_rect ~dst_rect ();
+  ) game_state.f_bullets;
 
   List.iter (fun foe ->
     let x, y = foe.foe_pos in
     let dst_rect = Rect.make4 x y 20 20 in
-    Render.copy renderer ~texture:foe.foe_texture ~src_rect ~dst_rect ();
-  ) foes;
+    let texture = foe.foe_texture in
+    Render.copy game_data.renderer ~texture ~src_rect ~dst_rect ();
+  ) game_state.foes;
 
   List.iter (fun pos ->
     let x, y = pos in
     let dst_rect = Rect.make4 x y 20 20 in
-    Render.copy renderer ~texture:p_bullet_tex ~src_rect ~dst_rect ();
-  ) p_bullets;
+    let texture = game_data.p_bullet_tex in
+    Render.copy game_data.renderer ~texture ~src_rect ~dst_rect ();
+  ) game_state.p_bullets;
 
   begin
-    let x, y = player.p_pos in
+    let x, y = game_state.player.p_pos in
     let dst_rect = Rect.make4 x y 20 20 in
-    Render.copy renderer ~texture:player.p_texture ~src_rect ~dst_rect ();
+    let texture = game_state.player.p_texture in
+    Render.copy game_data.renderer ~texture ~src_rect ~dst_rect ();
   end;
 
-  Render.render_present renderer;
+  Render.render_present game_data.renderer;
 ;;
 
 
@@ -633,12 +650,12 @@ let proc_events player renderer = function
   | _ -> player
 
 
-let rec event_loop player renderer =
+let rec event_loop  game_state game_data =
   match Event.poll_event () with
-  | None -> player
+  | None -> game_state
   | Some ev ->
-      let player = proc_events player renderer ev in
-      event_loop player renderer
+      let player = proc_events game_state.player game_data.renderer ev in
+      event_loop { game_state with player } game_data
 
 
 let pixel_for_surface ~surface ~rgb =
@@ -716,15 +733,15 @@ let point_on_line (p1, p2) i t =
   )
 
 
-let step_foes_bullets f_bullets t =
+let step_foes_bullets  game_state t =
   let step_bullet bullet =
     let dt = t - bullet.bullet_birth in
     let p = point_on_line bullet.bullet_line 6000 dt in
     { bullet with bullet_pos = p }
   in
-  let f_bullets = List.map step_bullet f_bullets in
+  let f_bullets = List.map step_bullet game_state.f_bullets in
   let f_bullets = List.filter f_bullet_inside f_bullets in
-  (f_bullets)
+  { game_state with f_bullets }
 
 
 let inter1 t t1 t2 v1 v2 =
@@ -794,15 +811,15 @@ let new_foe renderer t =
   { foe_texture; foe_pos; foe_anim; foe_last_shot; foe_shoot_freq }
 
 
-let new_foes_opt foes renderer t =
+let new_foes_opt game_state game_data t =
   if Random.int 100 > 2
-  then foes
+  then game_state.foes
   else
-    let new_foe = new_foe renderer t in
-    new_foe :: foes
+    let new_foe = new_foe game_data.renderer t in
+    new_foe :: game_state.foes
 
 
-let gun_new_f_bullets f_bullets foes player t =
+let gun_new_f_bullets game_state foes t =
   let rec aux acc1 acc2 foes =
     match foes with
     | [] -> (acc1, acc2)
@@ -813,13 +830,13 @@ let gun_new_f_bullets f_bullets foes player t =
           let updated_foe = { foe with foe_last_shot = t } in
           let bullet =
             { bullet_pos = foe.foe_pos;
-              bullet_line = (foe.foe_pos, player.p_pos);
+              bullet_line = (foe.foe_pos, game_state.player.p_pos);
               bullet_birth = t; }
           in
           aux (bullet :: acc1) (updated_foe :: acc2) foes
   in
   let new_f_bullets, foes = aux [] [] foes in
-  let f_bullets = List.rev_append new_f_bullets f_bullets in
+  let f_bullets = List.rev_append new_f_bullets game_state.f_bullets in
   let foes = List.rev foes in
   (f_bullets, foes)
 
@@ -837,13 +854,13 @@ let foe_touched p_bullets foe =
   ) p_bullets
 
 
-let step_foes  renderer foes player f_bullets p_bullets t =
+let step_foes  game_state game_data t =
   let step_foe foe =
     let new_pos = Timeline.val_at t foe.foe_anim in
     { foe with foe_pos = new_pos }
   in
-  let foes = new_foes_opt foes renderer t in
-  let f_bullets, foes = gun_new_f_bullets f_bullets foes player t in
+  let foes = new_foes_opt game_state game_data t in
+  let f_bullets, foes = gun_new_f_bullets game_state foes t in
   let foes = List.map step_foe foes in
   let foes =
     List.filter (fun foe ->
@@ -854,23 +871,23 @@ let step_foes  renderer foes player f_bullets p_bullets t =
   in
   let foes =
     List.filter (fun foe ->
-      if foe_touched p_bullets foe
+      if foe_touched game_state.p_bullets foe
       then (incr shot; Texture.destroy foe.foe_texture; false)
       else true
     ) foes
   in
-  (foes, f_bullets)
+  { game_state with foes; f_bullets }
 
 
-let player_touched player f_bullets =
-  let x, y = player.p_pos in
+let player_touched  game_state =
+  let x, y = game_state.player.p_pos in
   let player_rect = Rect.make4 x y 20 20 in
   List.exists (fun bullet ->
     let x, y = bullet.bullet_pos in
     let x, y = x + 4, y + 4 in
     let bullet_rect = Rect.make4 x y 12 12 in
     Rect.has_intersection player_rect bullet_rect
-  ) f_bullets
+  ) game_state.f_bullets
 
 
 let player_moving player =
@@ -894,10 +911,13 @@ let player_moving player =
   { player with p_pos = (x, y) }
 
 
-let step_player_bullets p_bullets =
-  p_bullets |>
-    List.map (fun (x, y) -> (x, y - 8)) |>
-    List.filter (fun (x, y) -> y > -20)
+let step_player_bullets  game_state =
+  let p_bullets =
+    game_state.p_bullets
+      |> List.map (fun (x, y) -> (x, y - 8))
+      |> List.filter (fun (x, y) -> y > -20)
+  in
+  { game_state with p_bullets }
 
 
 let player_shooting  player p_bullets t =
@@ -911,20 +931,17 @@ let player_shooting  player p_bullets t =
     (player, p_bullets)
 
 
-let step_player  player p_bullets t =
-  let player = player_moving player in
-  let player, p_bullets = player_shooting  player p_bullets t in
-  (player, p_bullets)
+let step_player  game_state t =
+  let player = player_moving game_state.player in
+  let player, p_bullets = player_shooting  player game_state.p_bullets t in
+  { game_state with player; p_bullets }
 
 
-let rec game_over renderer player f_bullets p_bullets foes
-      f_bullet_tex p_bullet_tex letters_tex =
-  let _ = event_loop player renderer in
-  display  renderer false player f_bullets p_bullets foes
-      f_bullet_tex p_bullet_tex letters_tex;
+let rec game_over  game_state game_data =
+  let _ = event_loop  game_state game_data in
+  display ~playing:false game_state game_data;
   Timer.delay 200;
-  game_over renderer player f_bullets p_bullets foes
-      f_bullet_tex p_bullet_tex letters_tex
+  game_over  game_state game_data
 
 
 let () =
@@ -953,9 +970,6 @@ let () =
       };
     p_texture = player_texture;
   } in
-  let foes = [] in
-  let p_bullets = [] in
-  let f_bullets = [] in
 
   let fb_pattern = [|
     [| 0; 0; 0; 0; 0 |];
@@ -982,31 +996,42 @@ let () =
     ) letters
   in
 
-  let rec main_loop ~player ~f_bullets ~p_bullets ~foes =
-    let player = event_loop player renderer in
+  let game_state = {
+    player;
+    foes = [];
+    p_bullets = [];
+    f_bullets = [];
+  } in
+  let game_data = {
+    f_bullet_tex;
+    p_bullet_tex;
+    letters_tex;
+    renderer;
+  } in
+
+  let rec main_loop  game_state game_data =
+    let game_state = event_loop  game_state game_data in
     let t = Timer.get_ticks () in
 
-    let foes, f_bullets = step_foes  renderer foes player f_bullets p_bullets t in
-    let f_bullets = step_foes_bullets  f_bullets t in
-    let p_bullets = step_player_bullets  p_bullets in
-    let player, p_bullets = step_player  player p_bullets t in
+    let game_state = step_foes  game_state game_data t in
+    let game_state = step_foes_bullets  game_state t in
+    let game_state = step_player_bullets  game_state in
+    let game_state = step_player  game_state t in
 
-    display  renderer true player f_bullets p_bullets foes
-      f_bullet_tex p_bullet_tex letters_tex;
+    display ~playing:true game_state game_data;
 
     let t2 = Timer.get_ticks () in
     let dt = t2 - t in
 
     Timer.delay (max 0 (40 - dt));
 
-    if player_touched  player f_bullets
+    if player_touched  game_state
     then begin
       Printf.printf "# shot: %d\n" !shot;
       Printf.printf "# missed: %d\n" !missed;
       Printf.printf "# score: %d\n%!" (!shot - !missed);
-      game_over renderer player f_bullets p_bullets foes
-          f_bullet_tex p_bullet_tex letters_tex
+      game_over  game_state game_data
     end
-    else main_loop ~player ~f_bullets ~p_bullets ~foes
+    else main_loop  game_state game_data
   in
-  main_loop ~player ~f_bullets ~p_bullets ~foes
+  main_loop  game_state game_data
