@@ -693,6 +693,21 @@ let rec event_loop  game_state game_data =
       event_loop { game_state with player } game_data
 
 
+let proc_events_r = function
+  | Event.KeyDown { Event.keycode = Keycode.Return }
+  | Event.KeyDown { Event.keycode = Keycode.Space } -> true
+
+  | Event.Joy_Button_Down { Event.jb_which = 0; Event.jb_button = 2 }
+  | Event.Joy_Button_Down { Event.jb_which = 0; Event.jb_button = 9 } -> true
+  | _ -> false
+
+
+let rec event_restart () =
+  match Event.poll_event () with
+  | None -> false
+  | Some ev -> proc_events_r ev
+
+
 let pixel_for_surface ~surface ~rgb =
   let fmt = Surface.get_pixelformat_t surface in
   let pixel_format = Pixel.alloc_format fmt in
@@ -976,13 +991,6 @@ let step_player  game_state t =
   { game_state with player; p_bullets }
 
 
-let rec game_over  game_state game_data =
-  let _ = event_loop  game_state game_data in
-  display ~playing:false game_state game_data;
-  Timer.delay 200;
-  game_over  game_state game_data
-
-
 let rec main_loop  game_state game_data =
   let game_state = event_loop  game_state game_data in
   let t = Timer.get_ticks () in
@@ -1007,6 +1015,44 @@ let rec main_loop  game_state game_data =
     game_over  game_state game_data
   end
   else main_loop  game_state game_data
+
+
+and game_over  game_state game_data =
+  let restart = event_restart () in
+  if not restart then begin
+    display ~playing:false game_state game_data;
+    Timer.delay 200;
+    game_over  game_state game_data
+  end else begin
+    let game_state = reinit_game game_state in
+    main_loop  game_state game_data
+  end
+
+
+and reinit_game game_state =
+  shot := 0;
+  missed := 0;
+
+  let player = { game_state.player with
+    p_pos = (width / 2, height - 60);
+    p_last_shot = Timer.get_ticks ();
+    p_shooting = false;
+    p_shoot_color = Green;
+    p_dir =
+      { left = false;
+        right = false;
+        up = false;
+        down = false;
+      };
+  } in
+
+  let game_state = {
+    player;
+    foes = [];
+    p_bullets = [];
+    f_bullets = [];
+  } in
+  (game_state)
 
 
 let init_game renderer =
