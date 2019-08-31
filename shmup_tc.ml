@@ -580,6 +580,19 @@ let display ~playing game_state game_data =
     Render.copy game_data.renderer ~texture ~src_rect ~dst_rect ();
   end;
 
+  begin (* indicator of the shooting color *)
+    let color =
+      match game_state.player.p_shoot_color with Red -> red | Green -> green
+    in
+    let x, y =
+      let x, y = game_state.player.p_pos in
+      (x + 8, y + 24)
+    in
+    let rect = Rect.make4 x y 4 4 in
+    Render.set_draw_color game_data.renderer color alpha;
+    Render.fill_rect game_data.renderer rect;
+  end;
+
   Render.render_present game_data.renderer;
 ;;
 
