@@ -196,6 +196,7 @@ type game_data = {
 let width, height = (640, 480)
 
 let blue   = (0, 0, 255)
+let blue2  = (40, 40, 255)
 let green  = (0, 255, 0)
 let red    = (255, 0, 0)
 let yellow = (255, 255, 0)
@@ -1100,7 +1101,7 @@ let init_game renderer =
 
   let letters_tex =
     List.map (fun (c, pat) ->
-      let tex = texture_of_pattern renderer pat ~color:green in
+      let tex = texture_of_pattern renderer pat ~color:blue2 in
       (c, tex)
     ) letters
   in
