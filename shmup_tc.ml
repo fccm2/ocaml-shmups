@@ -970,6 +970,32 @@ let rec game_over  game_state game_data =
   game_over  game_state game_data
 
 
+let rec main_loop  game_state game_data =
+  let game_state = event_loop  game_state game_data in
+  let t = Timer.get_ticks () in
+
+  let game_state = step_foes  game_state game_data t in
+  let game_state = step_foes_bullets  game_state t in
+  let game_state = step_player_bullets  game_state in
+  let game_state = step_player  game_state t in
+
+  display ~playing:true game_state game_data;
+
+  let t2 = Timer.get_ticks () in
+  let dt = t2 - t in
+
+  Timer.delay (max 0 (40 - dt));
+
+  if player_touched  game_state
+  then begin
+    Printf.printf "# shot: %d\n" !shot;
+    Printf.printf "# missed: %d\n" !missed;
+    Printf.printf "# score: %d\n%!" (!shot - !missed);
+    game_over  game_state game_data
+  end
+  else main_loop  game_state game_data
+
+
 let () =
   Random.self_init ();
   Sdl.init [`VIDEO; `JOYSTICK];
@@ -1038,29 +1064,4 @@ let () =
     renderer;
   } in
 
-  let rec main_loop  game_state game_data =
-    let game_state = event_loop  game_state game_data in
-    let t = Timer.get_ticks () in
-
-    let game_state = step_foes  game_state game_data t in
-    let game_state = step_foes_bullets  game_state t in
-    let game_state = step_player_bullets  game_state in
-    let game_state = step_player  game_state t in
-
-    display ~playing:true game_state game_data;
-
-    let t2 = Timer.get_ticks () in
-    let dt = t2 - t in
-
-    Timer.delay (max 0 (40 - dt));
-
-    if player_touched  game_state
-    then begin
-      Printf.printf "# shot: %d\n" !shot;
-      Printf.printf "# missed: %d\n" !missed;
-      Printf.printf "# score: %d\n%!" (!shot - !missed);
-      game_over  game_state game_data
-    end
-    else main_loop  game_state game_data
-  in
   main_loop  game_state game_data
