@@ -779,7 +779,7 @@ let fe t1 t2 t ps =
 let make_foe_anim t =
   let t1 = t
   and t2 = t + 6000 + Random.int 4000 in
-  match Random.int 7 with
+  match Random.int 9 with
   | 0 ->  (* left to right *)
       let p1, p2, p3 =
         (-20, Random.int (height - 20)),
@@ -804,7 +804,7 @@ let make_foe_anim t =
       in
       let ps = (p1, p2, p3) in
       [ `Evol (t1, t2, fe, ps) ]
-  | 5 | 6 ->  (* top to middle, pause, middle to bottom *)
+  | 5 | 6 | 7 | 8 ->  (* top to middle, pause, middle to bottom *)
       let t1 = t
       and t2 = t + 4000 + Random.int 3000 in
       let t3 = t2 + 2000 + Random.int 2000 in
@@ -830,7 +830,7 @@ let new_foe renderer t =
   let foe_pos = (Random.int (width - 20), -20) in
   let foe_anim = make_foe_anim t in
   let foe_last_shot = t in
-  let foe_shoot_freq = 1600 + Random.int 1800 in
+  let foe_shoot_freq = 1800 + Random.int 2000 in
   { foe_texture; foe_pos; foe_anim; foe_last_shot; foe_shoot_freq; foe_color }
 
 
@@ -986,7 +986,7 @@ let () =
   let player = {
     p_pos = (width / 2, height - 60);
     p_last_shot = Timer.get_ticks ();
-    p_shoot_freq = 300;
+    p_shoot_freq = 260;
     p_shooting = false;
     p_shoot_color = Green;
     p_dir =
