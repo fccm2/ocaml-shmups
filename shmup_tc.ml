@@ -1009,18 +1009,7 @@ let rec main_loop  game_state game_data =
   else main_loop  game_state game_data
 
 
-let () =
-  Random.self_init ();
-  Sdl.init [`VIDEO; `JOYSTICK];
-  let window, renderer =
-    Render.create_window_and_renderer ~width ~height ~flags:[]
-  in
-  Render.set_logical_size2 renderer width height;
-
-  let joy_num = Joystick.num_joysticks () in
-  if joy_num >= 1
-  then ignore(Joystick.j_open 0);
-
+let init_game renderer =
   let player_texture = make_avatar renderer ~color:blue () in
   let player = {
     p_pos = (width / 2, height - 60);
@@ -1076,5 +1065,21 @@ let () =
     letters_tex;
     renderer;
   } in
+  (game_state, game_data)
+
+
+let () =
+  Random.self_init ();
+  Sdl.init [`VIDEO; `JOYSTICK];
+  let window, renderer =
+    Render.create_window_and_renderer ~width ~height ~flags:[]
+  in
+  Render.set_logical_size2 renderer width height;
+
+  let joy_num = Joystick.num_joysticks () in
+  if joy_num >= 1
+  then ignore(Joystick.j_open 0);
+
+  let game_state, game_data = init_game renderer in
 
   main_loop  game_state game_data
