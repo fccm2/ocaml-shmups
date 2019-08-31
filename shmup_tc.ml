@@ -143,12 +143,15 @@ end
 module QBCurve = QuadraticBezierCurves
 
 
+type foe_color = Green | Red
+
 type foe = {
   foe_pos: int * int;
   foe_anim:
     (point2d, point2d * point2d * point2d) Timeline.animated list;
   foe_last_shot: int;
   foe_shoot_freq: int;
+  foe_color: foe_color;
   foe_texture: Texture.t;
 }
 
@@ -194,6 +197,9 @@ let blue   = (0, 0, 255)
 let green  = (0, 255, 0)
 let yellow = (255, 255, 0)
 let alpha  = 255
+
+let f_green = (30, 180, 30)
+let f_red   = (180, 30, 30)
 
 let shot = ref 0
 let missed = ref 0
@@ -803,12 +809,13 @@ let make_foe_anim t =
 
 
 let new_foe renderer t =
-  let foe_texture = make_avatar renderer () in
+  let foe_color, color = if Random.bool () then (Red, f_red) else (Green, f_green) in
+  let foe_texture = make_avatar renderer ~color () in
   let foe_pos = (Random.int (width - 20), -20) in
   let foe_anim = make_foe_anim t in
   let foe_last_shot = t in
   let foe_shoot_freq = 1600 + Random.int 1800 in
-  { foe_texture; foe_pos; foe_anim; foe_last_shot; foe_shoot_freq }
+  { foe_texture; foe_pos; foe_anim; foe_last_shot; foe_shoot_freq; foe_color }
 
 
 let new_foes_opt game_state game_data t =
