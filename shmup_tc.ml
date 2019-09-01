@@ -1032,14 +1032,17 @@ and game_over  game_state game_data =
     Timer.delay 200;
     game_over  game_state game_data
   end else begin
-    let game_state = reinit_game game_state in
+    let game_state = reinit_game game_state game_data in
     main_loop  game_state game_data
   end
 
 
-and reinit_game game_state =
+and reinit_game game_state game_data =
   shot := 0;
   missed := 0;
+
+  Texture.destroy game_state.player.p_texture;
+  let player_texture = make_avatar game_data.renderer ~color:blue () in
 
   let player = { game_state.player with
     p_pos = (width / 2, height - 60);
@@ -1052,6 +1055,7 @@ and reinit_game game_state =
         up = false;
         down = false;
       };
+    p_texture = player_texture;
   } in
 
   let game_state = {
