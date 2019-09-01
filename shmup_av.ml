@@ -1089,6 +1089,7 @@ let () =
     Render.create_window_and_renderer ~width ~height ~flags:[]
   in
   Render.set_logical_size2 renderer width height;
+  Window.set_title ~window ~title:"Shmup-av";
 
   let joy_num = Joystick.num_joysticks () in
   if joy_num >= 1
