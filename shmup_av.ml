@@ -658,6 +658,28 @@ let rec event_loop  game_state game_data =
       event_loop { game_state with player } game_data
 
 
+let proc_events_r = function
+  | Event.KeyDown { Event.keycode = Keycode.Q }
+  | Event.KeyDown { Event.keycode = Keycode.Escape }
+  | Event.Quit _ -> Sdl.quit (); exit 0
+
+  | Event.KeyDown { Event.keycode = Keycode.Return }
+  | Event.KeyDown { Event.keycode = Keycode.Space } -> true
+
+  | Event.Joy_Button_Down { Event.jb_which = 0; Event.jb_button = 2 }
+  | Event.Joy_Button_Down { Event.jb_which = 0; Event.jb_button = 9 } -> true
+  | _ -> false
+
+
+let rec event_restart () =
+  let rec aux acc =
+    match Event.poll_event () with
+    | None -> List.exists (fun restart -> restart) acc
+    | Some ev -> aux (proc_events_r ev :: acc)
+  in
+  aux []
+
+
 let pixel_for_surface ~surface ~rgb =
   let fmt = Surface.get_pixelformat_t surface in
   let pixel_format = Pixel.alloc_format fmt in
@@ -964,10 +986,44 @@ let rec main_loop  game_state game_data =
 
 
 and game_over  game_state game_data =
-  let _ = event_loop  game_state game_data in
-  display ~playing:false game_state game_data;
-  Timer.delay 200;
-  game_over  game_state game_data
+  let restart = event_restart () in
+  if not restart then begin
+    display ~playing:false game_state game_data;
+    Timer.delay 200;
+    game_over  game_state game_data
+  end else begin
+    let game_state = reinit_game game_state game_data in
+    main_loop  game_state game_data
+  end
+
+
+and reinit_game game_state game_data =
+  shot := 0;
+  missed := 0;
+
+  Texture.destroy game_state.player.p_texture;
+  let player_texture = make_avatar game_data.renderer ~color:blue () in
+
+  let player = { game_state.player with
+    p_pos = (width / 2, height - 60);
+    p_last_shot = Timer.get_ticks ();
+    p_shooting = false;
+    p_dir =
+      { left = false;
+        right = false;
+        up = false;
+        down = false;
+      };
+    p_texture = player_texture;
+  } in
+
+  let game_state = {
+    player;
+    foes = [];
+    p_bullets = [];
+    f_bullets = [];
+  } in
+  (game_state)
 
 
 let init_game renderer =
