@@ -15,8 +15,9 @@ http://www.linux-nantes.org/%7Efmonnier/ocaml/sdl2/
 After installing ocamlsdl2 you can run the games with:
 ocaml -I $(ocamlfind query sdl2) sdl2.cma shmup_av.ml
 
-Executable binary for Windows is available here:
-http://www.linux-nantes.org/%7Efmonnier/ocaml/shmup_av/
+Executable binaries for Windows are available here:
+http://www.linux-nantes.org/%7Efmonnier/ocaml/shmups/shmup_av.html
+http://www.linux-nantes.org/%7Efmonnier/ocaml/shmups/shmup_tc.html
 
 Write to me to tell me what you think about these games,
 or to tell me what is your higher score:
