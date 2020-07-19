@@ -134,9 +134,13 @@ end = struct
     | [] -> invalid_arg "val_at"
 
 
-  let finished t = function
+  let rec finished t = function
     | `From _ :: [] -> true
     | `Evol(_, t2, _, _) :: [] -> t > t2
+
+    | `From(t2, _) :: tl -> if t < t2 then false else finished t tl
+    | `Evol(_, t2, _, _) :: tl -> if t < t2 then false else finished t tl
+
     | _ -> false
 end
 
