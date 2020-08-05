@@ -6,7 +6,7 @@ With the keyboard shoot with Z.
 In Shmup-tc switch the shooting color with key X or
 on the joystick with button 2.
 
-This game is released under a restrictionless Zlib license,
+These games are released under a restrictionless Zlib license,
 see the file LICENSE.txt for details.
 
 You need ocamlsdl2 to run and/or compile:
