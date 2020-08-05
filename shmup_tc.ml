@@ -1023,7 +1023,7 @@ let rec main_loop  game_state game_data =
   then begin
     Printf.printf "# shot: %d\n" !shot;
     Printf.printf "# missed: %d\n" !missed;
-    Printf.printf "# score: %d\n%!" (!shot - !missed);
+    Printf.printf "# score: %d\n\n%!" (!shot - !missed);
     game_over  game_state game_data
   end
   else main_loop  game_state game_data
