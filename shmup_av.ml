@@ -1009,7 +1009,7 @@ and reinit_game game_state game_data =
   let player_texture = make_avatar game_data.renderer ~color:blue () in
 
   let player = { game_state.player with
-    p_pos = (width / 2, height - 60);
+    p_pos = (width / 2 - 10, height - 60);
     p_last_shot = Timer.get_ticks ();
     p_shooting = false;
     p_dir =
@@ -1033,7 +1033,7 @@ and reinit_game game_state game_data =
 let init_game renderer =
   let player_texture = make_avatar renderer ~color:blue () in
   let player = {
-    p_pos = (width / 2, height - 60);
+    p_pos = (width / 2 - 10, height - 60);
     p_last_shot = Timer.get_ticks ();
     p_shoot_freq = 300;
     p_shooting = false;
