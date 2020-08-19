@@ -1,4 +1,4 @@
-These are three simple abstract shmup games.
+These are four simple abstract shmup games.
 
 You can play with the keyboard or with a joystick.
 With the keyboard shoot with Z.
@@ -9,6 +9,10 @@ on the joystick with button 2.
 In Shmup-te shoot with keys S, D and F for repectively
 green, red, and blue, to kill enemies of the same colors.
 (These keys should be the same on azerty and qwerty keyboards)
+
+In Shmup-bg you are a bodyguard protecting a vip ship (the white
+ship). You can absorb enemies's bullets before they touch the vip.
+Game is over when the VIP is touched by a bullet.
 
 These games are released under a restrictionless Zlib license,
 see the file LICENSE.txt for details.
@@ -25,11 +29,13 @@ After installing ocamlsdl2 you can run the games with:
 ocaml -I $(ocamlfind query sdl2) sdl2.cma shmup_av.ml
 ocaml -I $(ocamlfind query sdl2) sdl2.cma shmup_tc.ml
 ocaml -I $(ocamlfind query sdl2) sdl2.cma shmup_te.ml
+ocaml -I $(ocamlfind query sdl2) sdl2.cma shmup_bg.ml
 
 If you just compiled ocamlsdl2 without installing it:
 ocaml -I ../OCamlSDL2/src sdl2.cma shmup_av.ml
 ocaml -I ../OCamlSDL2/src sdl2.cma shmup_tc.ml
 ocaml -I ../OCamlSDL2/src sdl2.cma shmup_te.ml
+ocaml -I ../OCamlSDL2/src sdl2.cma shmup_bg.ml
 
 Executable binaries for Windows are available here:
 https://blueprawn.itch.io/minishmups
