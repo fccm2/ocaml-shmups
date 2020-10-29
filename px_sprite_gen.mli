@@ -1,3 +1,5 @@
+(** Pixel Sprite Generator *)
+
 type mask
 
 val create_mask :
@@ -6,13 +8,22 @@ val create_mask :
 
 type options = {
   colored : bool;
-  edgeBrightness : float;
-  colorVariations : float;
-  brightnessNoise : float;
-  saturation : float;
+  edgeBrightness : float;     (** value from 0.0 to 1.0 *)
+  colorVariations : float;    (** value from 0.0 to 1.0 *)
+  brightnessNoise : float;    (** value from 0.0 to 1.0 *)
+  saturation : float;         (** value from 0.0 to 1.0 *)
 }
 
 val default_options : options
+(** {[
+  let default_options = {
+    colored         = true;
+    edgeBrightness  = 0.3;
+    colorVariations = 0.2;
+    brightnessNoise = 0.3;
+    saturation      = 0.5;
+  }
+]} *)
 
 type sprite = {
   width : int;
