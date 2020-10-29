@@ -291,8 +291,7 @@ let hslToRgb = (fun h s l rgb ->
 
 
 (**
-  This function renders out the template data to a HTML canvas to finally
-  create the sprite.
+  This function renders out the template data to create the sprite.
 
   (note: only template locations with the values of -1 (border) are rendered)
 *)
@@ -391,8 +390,7 @@ let init = (function this ->
 
 
 (**
-  The Sprite class makes use of a Mask instance to generate a 2D sprite on a
-  HTML canvas.
+  The Sprite class makes use of a Mask instance to generate a 2D sprite.
 
   let options = {
     colored         = true;   (* boolean *)
