@@ -14,6 +14,9 @@ In Shmup-bg you are a bodyguard protecting a vip ship (the white
 ship). You can absorb enemies's bullets before they touch the vip.
 Game is over when the VIP is touched by a bullet.
 
+In Shmup-ci, the player bullets are rotating arround him.
+You lose one bullet each time you get touched by an enemy's bullet.
+
 These games are released under a restrictionless Zlib license,
 see the file LICENSE.txt for details.
 
@@ -30,12 +33,14 @@ ocaml -I $(ocamlfind query sdl2) sdl2.cma shmup_av.ml
 ocaml -I $(ocamlfind query sdl2) sdl2.cma shmup_tc.ml
 ocaml -I $(ocamlfind query sdl2) sdl2.cma shmup_te.ml
 ocaml -I $(ocamlfind query sdl2) sdl2.cma shmup_bg.ml
+ocaml -I $(ocamlfind query sdl2) sdl2.cma shmup_ci.ml
 
 If you just compiled ocamlsdl2 without installing it:
 ocaml -I ../OCamlSDL2/src sdl2.cma shmup_av.ml
 ocaml -I ../OCamlSDL2/src sdl2.cma shmup_tc.ml
 ocaml -I ../OCamlSDL2/src sdl2.cma shmup_te.ml
 ocaml -I ../OCamlSDL2/src sdl2.cma shmup_bg.ml
+ocaml -I ../OCamlSDL2/src sdl2.cma shmup_ci.ml
 
 Executable binaries for Windows are available here:
 https://blueprawn.itch.io/minishmups
