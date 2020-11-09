@@ -910,29 +910,26 @@ let step_foes  game_state game_data t =
 let player_touched  game_state =
   let x, y = game_state.player.p_pos in
   let player_rect = Rect.make4 x y 20 20 in
-  let touching = ref None in
-  let p_is_touched =
-    List.exists (fun bullet ->
+  let touching_bullet =
+    List.find_opt (fun bullet ->
       let x, y = bullet.bullet_pos in
       let x, y = x + 4, y + 4 in
       let bullet_rect = Rect.make4 x y 12 12 in
-      if Rect.has_intersection player_rect bullet_rect
-      then (touching := Some bullet; true)
-      else false
+      Rect.has_intersection player_rect bullet_rect
     ) game_state.f_bullets
   in
   let game_state =
-    match !touching with
+    match touching_bullet with
     | None -> game_state
     | Some bullet ->
         { game_state with
-          f_bullets = List.filter (fun this -> not (this == bullet)) game_state.f_bullets;
+          f_bullets = List.filter (fun this -> (this != bullet)) game_state.f_bullets;
         }
   in
-  match p_is_touched, game_state.player.p_num_bullets with
-  | true, 1 -> { game_state with game_over = true }
-  | true, n -> { game_state with player = { game_state.player with p_num_bullets = pred n } }
-  | false, _ -> game_state
+  match touching_bullet, game_state.player.p_num_bullets with
+  | Some _, 1 -> { game_state with game_over = true }
+  | Some _, n -> { game_state with player = { game_state.player with p_num_bullets = pred n } }
+  | None, _ -> game_state
 
 
 let player_moving player =
