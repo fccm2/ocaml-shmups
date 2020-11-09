@@ -835,7 +835,7 @@ let new_foe renderer t =
   let foe_pos = (Random.int (width - 20), -20) in
   let foe_anim = make_foe_anim t in
   let foe_last_shot = t in
-  let foe_shoot_freq = 1600 + Random.int 1800 in
+  let foe_shoot_freq = 1800 + Random.int 2000 in
   { foe_texture; foe_pos; foe_anim; foe_last_shot; foe_shoot_freq }
 
 
