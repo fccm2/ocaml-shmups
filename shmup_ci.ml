@@ -1,5 +1,5 @@
 (* A Simple Abstract Shmup Game
- Copyright (C) 2019 Florent Monnier
+ Copyright (C) 2019, 2020 Florent Monnier
  
  This software is provided "AS-IS", without any express or implied warranty.
  In no event will the authors be held liable for any damages arising from
@@ -174,7 +174,13 @@ type player = {
   p_last_shot: int;
   p_dir: player_dir;
   p_num_bullets: int;  (* number of bullets *)
+  p_bonus_tot: int;  (* total number of bonuses caught *)
+  p_bonus_conv: int;  (* bonus counter to convert into bullets *)
   p_texture: Texture.t;
+}
+
+type bonus = {
+  b_pos: int * int;
 }
 
 type game_state = {
@@ -182,6 +188,7 @@ type game_state = {
   foes: foe list;
   f_bullets: foe_bullet list;  (* foes bullets *)
   p_bullets: (int * int) list;  (* player bullets *)
+  bonuses: bonus list;
   game_over: bool;
 }
 
@@ -189,12 +196,14 @@ type game_data = {
   renderer: Render.t;
   f_bullet_tex: Texture.t;
   p_bullet_tex: Texture.t;
+  bonus_tex: Texture.t;
   letters_tex: (char * Texture.t) list;
 }
 
 let width, height = (640, 480)
 
 let blue   = (0, 0, 255)
+let aqua   = (16, 32, 255)
 let green  = (0, 255, 0)
 let yellow = (255, 255, 0)
 let black  = (0, 0, 0)
@@ -543,7 +552,15 @@ let display ~playing game_state game_data t =
     let y = height - 25 in
     draw_letter tex x y 10;
   ) s;
+  let s = Printf.sprintf "bonus: %d" game_state.player.p_bonus_tot in
+  String.iteri (fun i c ->
+    let tex = List.assoc c game_data.letters_tex in
+    let x = i * 15 + width - 160 in
+    let y = height - 25 in
+    draw_letter tex x y 10;
+  ) s;
 
+  (* display foe bullets *)
   List.iter (fun bullet ->
     let x, y = bullet.bullet_pos in
     let dst_rect = Rect.make4 x y 20 20 in
@@ -551,6 +568,7 @@ let display ~playing game_state game_data t =
     Render.copy game_data.renderer ~texture ~src_rect ~dst_rect ();
   ) game_state.f_bullets;
 
+  (* display foes *)
   List.iter (fun foe ->
     let x, y = foe.foe_pos in
     let dst_rect = Rect.make4 x y 20 20 in
@@ -558,6 +576,15 @@ let display ~playing game_state game_data t =
     Render.copy game_data.renderer ~texture ~src_rect ~dst_rect ();
   ) game_state.foes;
 
+  (* display bonuses *)
+  List.iter (fun bonus ->
+    let x, y = bonus.b_pos in
+    let dst_rect = Rect.make4 x y 20 20 in
+    let texture = game_data.bonus_tex in
+    Render.copy game_data.renderer ~texture ~src_rect ~dst_rect ();
+  ) game_state.bonuses;
+
+  (* display player bullets *)
   List.iter (fun pos ->
     let x, y = pos in
     let dst_rect = Rect.make4 x y 20 20 in
@@ -565,6 +592,7 @@ let display ~playing game_state game_data t =
     Render.copy game_data.renderer ~texture ~src_rect ~dst_rect ();
   ) game_state.p_bullets;
 
+  (* display player *)
   begin
     let x, y = game_state.player.p_pos in
     let dst_rect = Rect.make4 x y 20 20 in
@@ -835,7 +863,7 @@ let new_foe renderer t =
   let foe_pos = (Random.int (width - 20), -20) in
   let foe_anim = make_foe_anim t in
   let foe_last_shot = t in
-  let foe_shoot_freq = 1800 + Random.int 2000 in
+  let foe_shoot_freq = 1200 + Random.int 1400 in
   { foe_texture; foe_pos; foe_anim; foe_last_shot; foe_shoot_freq }
 
 
@@ -897,14 +925,77 @@ let step_foes  game_state game_data t =
       else (incr missed; Texture.destroy foe.foe_texture; false)
     ) foes
   in
+  let bonuses = ref game_state.bonuses in
+  let add_bonus pos =
+    bonuses := { b_pos = pos } :: !bonuses
+  in
   let foes =
     List.filter (fun foe ->
       if foe_touched game_state.p_bullets foe
-      then (incr shot; Texture.destroy foe.foe_texture; false)
+      then (incr shot; add_bonus foe.foe_pos; Texture.destroy foe.foe_texture; false)
       else true
     ) foes
   in
-  { game_state with foes; f_bullets }
+  { game_state with foes; f_bullets; bonuses = !bonuses }
+
+
+let step_bonus bonus =
+  let x, y = bonus.b_pos in
+  { b_pos = (x, y + 1) }
+
+let filter_bonus bonus =
+  let x, y = bonus.b_pos in
+  (y > -20)
+
+let step_bonuses  game_state t =
+  let bonuses = game_state.bonuses in
+  let bonuses = List.map step_bonus bonuses in
+  let bonuses = List.filter filter_bonus bonuses in
+  { game_state with bonuses }
+
+
+let player_get_bonus  game_state =
+  let x, y = game_state.player.p_pos in
+  let player_rect = Rect.make4 x y 20 20 in
+  let touching_bonus =
+    List.find_opt (fun bonus ->
+      let x, y = bonus.b_pos in
+      let x, y = (x + 2, y + 2) in
+      let bonus_rect = Rect.make4 x y 16 16 in
+      Rect.has_intersection player_rect bonus_rect
+    ) game_state.bonuses
+  in
+  let game_state =
+    match touching_bonus with
+    | None -> game_state
+    | Some bonus ->
+        { game_state with
+          bonuses = List.filter (fun this -> (this != bonus)) game_state.bonuses;
+        }
+  in
+  match
+    (touching_bonus,
+     game_state.player.p_bonus_conv,
+     game_state.player.p_bonus_tot)
+  with
+  | None, _, _ -> game_state
+  | Some _, n, m ->
+      let p_num_bullets = game_state.player.p_num_bullets in
+      let p_bonus_conv = succ n in
+      let p_bonus_tot = succ m in
+      let p_bonus_conv, p_num_bullets =
+        if p_bonus_conv >= 24
+        then (p_bonus_conv - 24, succ p_num_bullets)
+        else (p_bonus_conv, p_num_bullets)
+      in
+      { game_state with
+        player = {
+          game_state.player with
+          p_num_bullets;
+          p_bonus_conv;
+          p_bonus_tot
+        }
+      }
 
 
 let player_touched  game_state =
@@ -913,7 +1004,7 @@ let player_touched  game_state =
   let touching_bullet =
     List.find_opt (fun bullet ->
       let x, y = bullet.bullet_pos in
-      let x, y = x + 4, y + 4 in
+      let x, y = (x + 4, y + 4) in
       let bullet_rect = Rect.make4 x y 12 12 in
       Rect.has_intersection player_rect bullet_rect
     ) game_state.f_bullets
@@ -927,9 +1018,11 @@ let player_touched  game_state =
         }
   in
   match touching_bullet, game_state.player.p_num_bullets with
-  | Some _, 1 -> { game_state with game_over = true }
-  | Some _, n -> { game_state with player = { game_state.player with p_num_bullets = pred n } }
   | None, _ -> game_state
+  | Some _, n ->
+      if n <= 1
+      then { game_state with game_over = true }
+      else { game_state with player = { game_state.player with p_num_bullets = pred n } }
 
 
 let player_moving player =
@@ -986,20 +1079,24 @@ let step_player  game_state t =
 
 
 let rec main_loop  game_state game_data =
+  let t1 = Timer.get_ticks () in
   let game_state = event_loop  game_state game_data in
+
   let t = Timer.get_ticks () in
 
   let game_state = step_foes  game_state game_data t in
   let game_state = step_foes_bullets  game_state t in
   let game_state = step_player  game_state t in
   let game_state = step_player_bullets  game_state t in
+  let game_state = step_bonuses  game_state t in
 
+  let game_state = player_get_bonus  game_state in
   let game_state = player_touched  game_state in
 
   display ~playing:true game_state game_data t;
 
   let t2 = Timer.get_ticks () in
-  let dt = t2 - t in
+  let dt = t2 - t1 in
 
   Timer.delay (max 0 (40 - dt));
 
@@ -1042,6 +1139,8 @@ and reinit_game game_state game_data =
         down = false;
       };
     p_num_bullets = 5;
+    p_bonus_conv = 0;
+    p_bonus_tot = 0;
     p_texture = player_texture;
   } in
 
@@ -1050,6 +1149,7 @@ and reinit_game game_state game_data =
     foes = [];
     p_bullets = [];
     f_bullets = [];
+    bonuses = [];
     game_over = false;
   } in
   (game_state)
@@ -1067,6 +1167,8 @@ let init_game renderer =
         down = false;
       };
     p_num_bullets = 5;
+    p_bonus_conv = 0;
+    p_bonus_tot = 0;
     p_texture = player_texture;
   } in
 
@@ -1087,10 +1189,11 @@ let init_game renderer =
 
   let f_bullet_tex = texture_of_pattern renderer fb_pattern ~color:yellow in
   let p_bullet_tex = texture_of_pattern renderer pb_pattern ~color:black in
+  let bonus_tex = texture_of_pattern renderer pb_pattern ~color:green in
 
   let letters_tex =
     List.map (fun (c, pat) ->
-      let tex = texture_of_pattern renderer pat ~color:green in
+      let tex = texture_of_pattern renderer pat ~color:aqua in
       (c, tex)
     ) letters
   in
@@ -1100,11 +1203,13 @@ let init_game renderer =
     foes = [];
     p_bullets = [];
     f_bullets = [];
+    bonuses = [];
     game_over = false;
   } in
   let game_data = {
     f_bullet_tex;
     p_bullet_tex;
+    bonus_tex;
     letters_tex;
     renderer;
   } in
