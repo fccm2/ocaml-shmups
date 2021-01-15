@@ -26,7 +26,7 @@ https://github.com/fccm/OCamlSDL2
 These games are known to work with:
 - SDL2 version 2.0.10
 - OCaml version 4.09.0 until 4.11.1
-- OCamlSDL2 version 0.03
+- OCamlSDL2 version 0.03 or 0.04
 
 After installing ocamlsdl2 you can run the games with:
 ocaml -I $(ocamlfind query sdl2) sdl2.cma shmup_av.ml
