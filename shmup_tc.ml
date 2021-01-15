@@ -1132,7 +1132,7 @@ let init_game renderer =
 
 let () =
   Random.self_init ();
-  Sdl.init [`VIDEO; `JOYSTICK];
+  Sdl.init [`VIDEO; `JOYSTICK; `TIMER];
   let window, renderer =
     Render.create_window_and_renderer ~width ~height ~flags:[]
   in
